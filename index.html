@@ -1353,13 +1353,26 @@ async function openDetail(item) {
   document.getElementById('d-image-note').value             = item.image_note || '';
   document.getElementById('d-image-note').readOnly          = !admin;
   document.getElementById('d-modified').textContent         = extra.modified || '수정 없음';
-  document.getElementById('d-memo').value                   = extra.memo || '';
+  document.getElementById('d-memo').value                   = item.memo_gs || extra.memo || '';
   document.getElementById('d-memo').readOnly                = !admin;
   document.getElementById('img-add-btn').style.display      = admin ? '' : 'none';
   document.getElementById('img-del-btn').style.display      = admin ? '' : 'none';
 
-  selectStatus(extra.status || 'available');
-  document.getElementById('detail-status-badge').innerHTML  = statusBadge(extra.status || 'available');
+  // ★ 구글 시트 status 우선, 없으면 로컬 extra 사용
+  const sheetStatus = item.status_gs || extra.status || 'available';
+  const sheetMemo   = item.memo_gs   || extra.memo   || '';
+  if (!extra.status && item.status_gs) {
+    extra.status = item.status_gs;
+    extraData[currentItemKey] = { ...extra };
+    saveExtra();
+  }
+  if (!extra.memo && item.memo_gs) {
+    extra.memo = item.memo_gs;
+    extraData[currentItemKey] = { ...extra };
+    saveExtra();
+  }
+  selectStatus(sheetStatus);
+  document.getElementById('detail-status-badge').innerHTML  = statusBadge(sheetStatus);
   document.querySelectorAll('#status-radio-group .radio-item').forEach(el => {
     el.style.pointerEvents = admin ? '' : 'none';
     el.style.opacity       = admin ? '1' : '.7';
@@ -1808,16 +1821,34 @@ async function saveDetail() {
         models: newModels, image_note: newNote,
       }
     };
-    const res  = await fetch(CFG.GAS_URL, {
+    // 1) 품목 정보 업데이트
+    const r1 = await fetch(CFG.GAS_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify(payload),
     });
-    const json = await res.json();
-    if (json.status === 'ok') showToast('💾 저장 완료 (구글 시트 반영)');
-    else throw new Error(json.message);
+    const j1 = await r1.json();
+    if (j1.status !== 'ok') throw new Error(j1.message);
+
+    // 2) 재고상태/메모 → G/H열 저장 (다른 사용자도 실시간 확인)
+    const r2 = await fetch(CFG.GAS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({
+        action: 'updateStatus',
+        category: currentItem._cat,
+        code: currentItem.code,
+        name: currentItem.name,
+        status: newStatus,
+        memo:   newMemo,
+      }),
+    });
+    const j2 = await r2.json();
+    currentItem.status_gs = newStatus;
+    currentItem.memo_gs   = newMemo;
+    showToast('💾 저장 완료 (모든 사용자 반영)');
   } catch(e) {
-    showToast('💾 로컬 저장 완료 (시트 연결 확인 필요)');
+    showToast('💾 로컬 저장 완료');
     console.warn('saveDetail GAS error:', e);
   }
   endLoad();
@@ -1831,21 +1862,24 @@ async function saveNewItem() {
   const name = document.getElementById('new-name').value.trim();
   if (!cat || !name) { showToast('제품군과 품명은 필수입니다.'); return; }
 
+  const code = document.getElementById('new-code').value.trim();
   const item = {
     category: cat,
     name,
-    price:  document.getElementById('new-price').value.trim(),
-    code:   document.getElementById('new-code').value.trim(),
-    models: document.getElementById('new-models').value.trim(),
+    price:      document.getElementById('new-price').value.trim(),
+    code,
+    models:     document.getElementById('new-models').value.trim(),
     image_note: '',
-    image_path: '',
+    image_path: code ? code + '.png' : '',  // ★ 자재코드 있으면 자동 설정
+    status:     document.querySelector('input[name="ns"]:checked')?.value || 'available',
+    memo:       document.getElementById('new-memo').value.trim(),
   };
 
   startLoad();
   try {
     const res  = await fetch(CFG.GAS_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({ action: 'addRow', sheetId: CFG.SHEET_ID, data: item }),
     });
     const json = await res.json();
@@ -1903,7 +1937,7 @@ async function saveBulk() {
   try {
     const res  = await fetch(CFG.GAS_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({ action: 'addRows', sheetId: CFG.SHEET_ID, data: items }),
     });
     const json = await res.json();
