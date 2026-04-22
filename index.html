@@ -695,7 +695,10 @@ a { color: inherit; text-decoration: none; }
       <div class="divider"></div>
 
       <!-- 수정 이력 -->
-      <div class="section-title">수정 이력</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+        <div class="section-title" style="margin-bottom:0;">수정 이력</div>
+        <button id="clear-history-btn" onclick="clearHistory()" style="display:none;font-size:11px;padding:3px 10px;border-radius:10px;border:1px solid var(--rose);background:var(--rose-lt);color:var(--rose-dk);cursor:pointer;">🗑️ 이력 전체 삭제</button>
+      </div>
       <div id="history-list" style="display:flex;flex-direction:column;gap:4px;">
         <div style="font-size:12px;color:var(--gray);">수정 이력이 없습니다.</div>
       </div>
@@ -739,7 +742,8 @@ a { color: inherit; text-decoration: none; }
         </div>
         <div class="field-group" style="margin-bottom:12px;"><div class="field-label">메모</div><textarea class="field-textarea" id="new-memo" placeholder="메모 (선택)"></textarea></div>
         <div style="display:flex;gap:8px;justify-content:flex-end;">
-          <button class="btn" onclick="clearAddForm()">초기화</button>
+          <div id="add-success-msg" style="display:none;padding:8px 14px;background:#e0f7ee;border-radius:8px;border:1px solid #5bbf8a;color:#1e6b3a;font-size:13px;font-weight:600;margin-bottom:4px;"></div>
+          <button class="btn" onclick="clearAddForm()" title="입력 내용 지우기">🗑️ 내용 지우기</button>
           <button class="btn btn-mint" onclick="saveNewItem()">✅ 저장 → 구글 시트</button>
         </div>
       </div>
@@ -1822,31 +1826,27 @@ async function saveDetail() {
       }
     };
     // 1) 품목 정보 업데이트
-    const r1 = await fetch(CFG.GAS_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify(payload),
+    const j1 = await gasGet('updateRow', {
+      category:   currentItem._cat,
+      code:       currentItem.code,
+      name:       currentItem.name,
+      price:      newPrice,
+      models:     newModels,
+      image_note: newNote,
     });
-    const j1 = await r1.json();
     if (j1.status !== 'ok') throw new Error(j1.message);
 
-    // 2) 재고상태/메모 → G/H열 저장 (다른 사용자도 실시간 확인)
-    const r2 = await fetch(CFG.GAS_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({
-        action: 'updateStatus',
-        category: currentItem._cat,
-        code: currentItem.code,
-        name: currentItem.name,
-        status: newStatus,
-        memo:   newMemo,
-      }),
+    // 2) 재고상태/메모 → G/H열 (다른 사용자 실시간 확인)
+    const j2 = await gasGet('updateStatus', {
+      category: currentItem._cat,
+      code:     currentItem.code,
+      name:     currentItem.name,
+      status:   newStatus,
+      memo:     newMemo,
     });
-    const j2 = await r2.json();
     currentItem.status_gs = newStatus;
     currentItem.memo_gs   = newMemo;
-    showToast('💾 저장 완료 (모든 사용자 반영)');
+    showToast('💾 저장 완료 — 모든 사용자에게 반영됩니다');
   } catch(e) {
     showToast('💾 로컬 저장 완료');
     console.warn('saveDetail GAS error:', e);
@@ -1877,29 +1877,45 @@ async function saveNewItem() {
 
   startLoad();
   try {
-    const res  = await fetch(CFG.GAS_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action: 'addRow', sheetId: CFG.SHEET_ID, data: item }),
+    const json = await gasGet('addRow', {
+      category:   cat,
+      name:       item.name,
+      price:      item.price,
+      code:       item.code,
+      models:     item.models,
+      image_note: item.image_note,
+      image_path: item.image_path,
+      status:     item.status,
+      memo:       item.memo,
     });
-    const json = await res.json();
     if (json.status !== 'ok') throw new Error(json.message);
 
-    const status = document.querySelector('input[name="ns"]:checked')?.value || 'available';
-    const memo   = document.getElementById('new-memo').value.trim();
+    // 로컬 DB 업데이트
     const newIdx = (DB[cat] || []).length;
     if (!DB[cat]) DB[cat] = [];
-    DB[cat].push({ ...item, _row: json.newRow });
-    extraData[`${cat}::${newIdx}`] = { status, memo, modified: today(), history: [] };
+    const newItem = { ...item, image_path: json.image_path || item.image_path, _row: json.newRow, _cat: cat, _idx: newIdx, _key: cat+'::'+newIdx };
+    DB[cat].push(newItem);
+    extraData[`${cat}::${newIdx}`] = { status: item.status, memo: item.memo, modified: today(), history: [] };
     saveExtra();
-
-    showToast(`'${name}' 추가됨 ✅`);
-    clearAddForm();
+    renderCatList(Object.keys(DB));  // 제품군 목록 새로고침
     updateCounts();
+    clearAddForm();
+    // 저장 완료 메시지 (입력 영역에 표시)
+    showSaveSuccess(name);
   } catch(e) {
     showToast('⚠️ 추가 실패: ' + e.message);
+    console.error(e);
   }
   endLoad();
+}
+
+// 저장 완료 메시지 표시
+function showSaveSuccess(name) {
+  const el = document.getElementById('add-success-msg');
+  if (!el) return;
+  el.textContent = `✅ "${name}" 추가 완료! 폼이 초기화됩니다.`;
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 3000);
 }
 
 /* ══════════════════════════════════════
@@ -1935,12 +1951,10 @@ async function saveBulk() {
   if (!items.length) { showToast('입력된 품목이 없습니다.'); return; }
   startLoad();
   try {
-    const res  = await fetch(CFG.GAS_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action: 'addRows', sheetId: CFG.SHEET_ID, data: items }),
+    const json = await gasGet('addRowsBatch', {
+      category:  cat,
+      rows_json: encodeURIComponent(JSON.stringify(items)),
     });
-    const json = await res.json();
     if (json.status !== 'ok') throw new Error(json.message);
     const d8 = today();
     items.forEach((it, i) => {
@@ -2059,8 +2073,21 @@ function restoreBackup(input) {
 /* ══════════════════════════════════════
    이력
 ══════════════════════════════════════ */
+function clearHistory() {
+  if (!currentItemKey) return;
+  if (!confirm('수정 이력을 모두 삭제할까요?')) return;
+  const extra = extraData[currentItemKey] || {};
+  extra.history = [];
+  extraData[currentItemKey] = extra;
+  saveExtra();
+  renderHistory([]);
+  showToast('수정 이력 삭제됨');
+}
+
 function renderHistory(history) {
   const el = document.getElementById('history-list');
+  const btn = document.getElementById('clear-history-btn');
+  if (btn) btn.style.display = (history?.length && isAdmin()) ? '' : 'none';
   if (!history?.length) { el.innerHTML = '<div style="font-size:12px;color:var(--gray);">수정 이력이 없습니다.</div>'; return; }
   el.innerHTML = history.slice().reverse().map(h => `
     <div class="history-item">
@@ -2210,6 +2237,21 @@ function deleteCurrentImg() {
     carouselGo(currentImgIdx);
   }
   showToast('이미지 삭제됨');
+}
+
+// ★ GAS 호출 헬퍼 — GET 방식으로 CORS 없이 호출
+async function gasGet(action, params) {
+  const url = new URL(CFG.GAS_URL);
+  url.searchParams.set('action', action);
+  if (params) {
+    Object.keys(params).forEach(k => {
+      if (params[k] !== null && params[k] !== undefined)
+        url.searchParams.set(k, String(params[k]));
+    });
+  }
+  const res  = await fetch(url.toString());
+  const json = await res.json();
+  return json;
 }
 
 function showToast(msg) {
