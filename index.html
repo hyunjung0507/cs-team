@@ -1844,32 +1844,35 @@ function renderRefBody(cat, refs, driveFiles) {
          + '</div>';
   }
 
-  // ── 로컬(이 기기) 참고자료 ──
-  if (refs.length > 0) {
-    out += '<div style="font-size:12px;font-weight:700;color:#666;padding:4px 8px;background:#f5f5f5;border-radius:6px;margin-bottom:8px;">📱 이 기기 저장 (' + refs.length + '장)</div>';
-    refs.forEach(function(r, i) {
-      out += '<div class="ref-item">'
-           + '<img class="ref-item-img" src="' + r.src + '" loading="lazy" onclick="openZoomRef(' + i + ','' + cat.replace(/'/g,"\'") + '')" onerror="this.style.display='none'">'
-           + '<div class="ref-item-body">'
-           + (admin
-             ? '<div class="ref-item-edit">'
-               + '<input class="ref-edit-input" value="' + (r.label||('참고 '+(i+1))).replace(/"/g,'&quot;') + '" placeholder="제목" onchange="updateRef('' + cat.replace(/'/g,"\'") + '',' + i + ','label',this.value)">'
-               + '<textarea class="ref-edit-ta" placeholder="설명" onchange="updateRef('' + cat.replace(/'/g,"\'") + '',' + i + ','desc',this.value)">' + (r.desc||'') + '</textarea>'
-               + '<button class="ref-del-btn" onclick="deleteRef('' + cat.replace(/'/g,"\'") + '',' + i + ')">삭제</button>'
-               + '</div>'
-             : '<div class="ref-item-title">' + (r.label||('참고 '+(i+1))) + '</div>'
-               + (r.desc ? '<div class="ref-item-desc">' + r.desc + '</div>' : ''))
-           + '</div></div>';
-    });
-  }
+// ── 로컬(이 기기) 참고자료 ──
+if (refs.length > 0) {
+  out += '<div style="font-size:12px;font-weight:700;color:#666;padding:4px 8px;background:#f5f5f5;border-radius:6px;margin-bottom:8px;">📱 이 기기 저장 (' + refs.length + '장)</div>';
+  refs.forEach(function(r, i) {
+    var escapedCat = cat.replace(/'/g, "\\'"); // 카테고리명 내 작은따옴표 치환
+    out += '<div class="ref-item">'
+         + '<img class="ref-item-img" src="' + r.src + '" loading="lazy" '
+         + 'onclick="openZoomRef(' + i + ', \'' + escapedCat + '\')" '
+         + 'onerror="this.style.display=\'none\'">'
+         + '<div class="ref-item-body">'
+         + (admin
+           ? '<div class="ref-item-edit">'
+             + '<input class="ref-edit-input" value="' + (r.label||('참고 '+(i+1))).replace(/"/g,'&quot;') + '" placeholder="제목" onchange="updateRef(\'' + escapedCat + '\',' + i + ',\'label\',this.value)">'
+             + '<textarea class="ref-edit-ta" placeholder="설명" onchange="updateRef(\'' + escapedCat + '\',' + i + ',\'desc\',this.value)">' + (r.desc||'') + '</textarea>'
+             + '<button class="ref-del-btn" onclick="deleteRef(\'' + escapedCat + '\',' + i + ')">삭제</button>'
+             + '</div>'
+           : '<div class="ref-item-title">' + (r.label||('참고 '+(i+1))) + '</div>'
+             + (r.desc ? '<div class="ref-item-desc">' + r.desc + '</div>' : ''))
+         + '</div></div>';
+  });
+}
 
-  if (!driveFiles.length && !refs.length) {
-    out = '<div style="text-align:center;padding:30px;color:#aaa;">'
-        + '<div style="font-size:32px;margin-bottom:8px;">📂</div>'
-        + '<div>참고자료가 없습니다</div>'
-        + (admin ? '<a href="' + folderUrl + '" target="_blank" style="display:inline-block;margin-top:10px;font-size:12px;color:var(--lav-dk);font-weight:700;">☁️ 드라이브에 올리기 →</a>' : '')
-        + '</div>';
-  }
+if (!driveFiles.length && !refs.length) {
+  out = '<div style="text-align:center;padding:30px;color:#aaa;">'
+      + '<div style="font-size:32px;margin-bottom:8px;">📂</div>'
+      + '<div>참고자료가 없습니다</div>'
+      + (admin ? '<a href="' + folderUrl + '" target="_blank" style="display:inline-block;margin-top:10px;font-size:12px;color:var(--lav-dk);font-weight:700;">☁️ 드라이브에 올리기 →</a>' : '')
+      + '</div>';
+}
 
   // ── 로컬 추가 버튼 ──
   if (admin) {
