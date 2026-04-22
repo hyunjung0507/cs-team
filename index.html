@@ -78,6 +78,14 @@ a { color: inherit; text-decoration: none; }
 }
 .btn-login:hover  { transform: translateY(-1px); }
 .btn-login:active { transform: translateY(0); }
+.login-type-btn {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 20px; border-radius: 16px; border: none;
+  color: #fff; cursor: pointer; text-align: left; width: 100%;
+  box-shadow: 0 4px 14px rgba(0,0,0,.15); transition: transform .15s, box-shadow .15s;
+}
+.login-type-btn:hover  { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,.2); }
+.login-type-btn:active { transform: translateY(0); }
 
 /* ══════════════════════════════════════
    헤더
@@ -510,11 +518,54 @@ a { color: inherit; text-decoration: none; }
   <div class="login-card">
     <span class="login-emoji">📦</span>
     <div class="login-title">상담실 자재 관리</div>
-    <div class="login-sub">앱 비밀번호를 입력하세요</div>
-    <input id="pw-input" class="login-input" type="password" placeholder="••••"
-           maxlength="20" onkeydown="if(event.key==='Enter')doLogin()">
-    <div class="login-err" id="login-err">&nbsp;</div>
-    <button class="btn-login" onclick="doLogin()">입장하기</button>
+    <div class="login-sub" id="login-sub">입장 유형을 선택하세요</div>
+
+    <!-- ① 유형 선택 버튼들 -->
+    <div id="login-type-btns" style="display:flex;flex-direction:column;gap:12px;margin-bottom:8px;">
+      <button class="login-type-btn" onclick="showLoginForm('admin')" style="background:linear-gradient(135deg,#f0a060,#e07030);">
+        <span style="font-size:22px;">👑</span>
+        <div>
+          <div style="font-size:15px;font-weight:800;">관리자 로그인</div>
+          <div style="font-size:11px;opacity:.85;">전체 관리 권한</div>
+        </div>
+      </button>
+      <button class="login-type-btn" onclick="showLoginForm('staff')" style="background:linear-gradient(135deg,#5ba3d0,#3a7fb0);">
+        <span style="font-size:22px;">🏢</span>
+        <div>
+          <div style="font-size:15px;font-weight:800;">본사 직원 입장</div>
+          <div style="font-size:11px;opacity:.85;">이름 + 본사 공통 비밀번호</div>
+        </div>
+      </button>
+      <button class="login-type-btn" onclick="showLoginForm('outsource')" style="background:linear-gradient(135deg,#5bbf8a,#2e7a55);">
+        <span style="font-size:22px;">☀️</span>
+        <div>
+          <div style="font-size:15px;font-weight:800;">외주 파트너 입장</div>
+          <div style="font-size:11px;opacity:.85;">이름 + 시즌 코드</div>
+        </div>
+      </button>
+    </div>
+
+    <!-- ② 입력 폼 (버튼 선택 후 표시) -->
+    <div id="login-form" style="display:none;">
+      <div id="login-form-header" style="display:flex;align-items:center;gap:8px;margin-bottom:14px;padding:10px 14px;border-radius:10px;font-weight:700;font-size:14px;"></div>
+      <div id="login-name-wrap" style="display:none;margin-bottom:10px;">
+        <input id="login-name" class="login-input" type="text" placeholder="이름 입력"
+               style="letter-spacing:0;" maxlength="20"
+               onkeydown="if(event.key==='Enter')matsLogin()">
+      </div>
+      <input id="login-pw" class="login-input" type="password" placeholder="비밀번호 / 코드 입력"
+             maxlength="30" onkeydown="if(event.key==='Enter')matsLogin()">
+      <div class="login-err" id="login-err">&nbsp;</div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn-login" style="background:#aaa;flex:1;" onclick="hideLoginForm()">← 뒤로</button>
+        <button class="btn-login" style="flex:2;" onclick="matsLogin()">입장하기 →</button>
+      </div>
+    </div>
+
+    <div id="login-loading" style="display:none;text-align:center;padding:16px;color:#888;font-size:13px;">
+      <div class="spinner" style="margin:0 auto 8px;width:24px;height:24px;"></div>
+      확인 중...
+    </div>
   </div>
 </div>
 
@@ -959,25 +1010,92 @@ function endLoad()   { lb.className='loading-bar done'; setTimeout(()=>lb.classN
 /* ══════════════════════════════════════
    로그인
 ══════════════════════════════════════ */
-function doLogin() {
-  const pw = document.getElementById('pw-input').value;
-  if (pw === CFG.PASSWORD) {
-    document.getElementById('login-page').style.display = 'none';
-    document.getElementById('main-app').classList.remove('hidden');
-    // 이름 입력 모달 (간이)
-    loginAs('__pw_verified__');
-  } else {
-    const err = document.getElementById('login-err');
-    err.textContent = '비밀번호가 올바르지 않습니다.';
-    document.getElementById('pw-input').value = '';
-    setTimeout(() => err.textContent = '\u00a0', 2000);
+function showLoginForm(type) {
+  matsLoginType = type;
+  const headers = {
+    admin:     { icon:'👑', label:'관리자 로그인',   bg:'linear-gradient(135deg,#f0a060,#e07030)' },
+    staff:     { icon:'🏢', label:'본사 직원 입장',   bg:'linear-gradient(135deg,#5ba3d0,#3a7fb0)' },
+    outsource: { icon:'☀️', label:'외주 파트너 입장', bg:'linear-gradient(135deg,#5bbf8a,#2e7a55)' },
+  };
+  const h = headers[type];
+  const hdr = document.getElementById('login-form-header');
+  hdr.style.background = h.bg; hdr.style.color = '#fff';
+  hdr.innerHTML = '<span style="font-size:20px;">' + h.icon + '</span> ' + h.label;
+  document.getElementById('login-name-wrap').style.display = (type !== 'admin') ? '' : 'none';
+  document.getElementById('login-pw').placeholder = type==='admin' ? '관리자 비밀번호' : type==='staff' ? '본사 공통 비밀번호' : '시즌 코드';
+  document.getElementById('login-name').value = '';
+  document.getElementById('login-pw').value = '';
+  document.getElementById('login-err').innerHTML = '&nbsp;';
+  document.getElementById('login-sub').textContent = h.label;
+  document.getElementById('login-type-btns').style.display = 'none';
+  document.getElementById('login-form').style.display = '';
+  setTimeout(() => (type==='admin' ? document.getElementById('login-pw') : document.getElementById('login-name')).focus(), 100);
+}
+let matsLoginType = '';
+
+function hideLoginForm() {
+  matsLoginType = '';
+  document.getElementById('login-type-btns').style.display = '';
+  document.getElementById('login-form').style.display = 'none';
+  document.getElementById('login-sub').textContent = '입장 유형을 선택하세요';
+  document.getElementById('login-err').innerHTML = '&nbsp;';
+}
+
+async function matsLogin() {
+  const type  = matsLoginType;
+  const name  = (document.getElementById('login-name').value||'').trim();
+  const pw    = (document.getElementById('login-pw').value||'').trim();
+  const errEl = document.getElementById('login-err');
+  if (!pw)                        { errEl.textContent = '비밀번호/코드를 입력하세요.'; return; }
+  if (type !== 'admin' && !name)  { errEl.textContent = '이름을 입력하세요.'; return; }
+  document.getElementById('login-form').style.display = 'none';
+  document.getElementById('login-loading').style.display = '';
+  try {
+    let result;
+    try {
+      const json = await gasGet('checkLogin', { type, name, pw });
+      result = json;
+    } catch(e) {
+      result = (type==='admin' && pw===CFG.PASSWORD)
+        ? { ok:true, displayName:'관리자', role:'admin' }
+        : { ok:false, msg:'서버 연결 실패' };
+    }
+    document.getElementById('login-loading').style.display = 'none';
+    if (result.ok) {
+      document.getElementById('login-page').style.display = 'none';
+      document.getElementById('main-app').classList.remove('hidden');
+      matsApplyUser(result.displayName, result.role);
+      gasGet('logAccess', { name: result.displayName, role: result.role, dt: new Date().toLocaleString('ko-KR') }).catch(()=>{});
+    } else {
+      document.getElementById('login-form').style.display = '';
+      errEl.textContent = result.msg || '입장 불가';
+    }
+  } catch(e) {
+    document.getElementById('login-loading').style.display = 'none';
+    document.getElementById('login-form').style.display = '';
+    errEl.textContent = '오류 발생: ' + e.message;
   }
 }
 
-function loginAs(token) {
-  // 비밀번호 확인 후 이름 선택 화면 표시
-  showNameSelector();
+function matsApplyUser(name, role) {
+  currentUser = { name, role };
+  document.getElementById('user-display').textContent = name;
+  const rb = document.getElementById('role-display');
+  if (role === 'admin' || role === 'manager') {
+    rb.className = 'role-badge role-admin';
+    rb.textContent = role==='admin' ? '✏️ 관리자' : '✏️ 매니저';
+    document.getElementById('manage-btn').style.display = '';
+  } else {
+    rb.className = 'role-badge role-viewer'; rb.textContent = '👁️ 조회';
+    document.getElementById('manage-btn').style.display = 'none';
+  }
+  loadData();
 }
+
+function isAdmin() { return currentUser && (currentUser.role==='admin' || currentUser.role==='manager'); }
+
+function doLogin() { matsLogin(); }
+
 
 function showNameSelector() {
   // 박현정을 기본 관리자로 초기화
@@ -1368,7 +1486,7 @@ async function openDetail(item) {
   document.getElementById('img-del-btn').style.display      = admin ? '' : 'none';
 
   // ★ 구글 시트 status 우선, 없으면 로컬 extra 사용
-  const sheetStatus = item.status_gs || extra.status || 'available';
+  const sheetStatus = normalizeStatus(item.status_gs || extra.status || 'available');
   const sheetMemo   = item.memo_gs   || extra.memo   || '';
   if (!extra.status && item.status_gs) {
     extra.status = item.status_gs;
@@ -1711,8 +1829,9 @@ function renderRefBody(cat, refs, driveFiles) {
     driveFiles.forEach(function(fn, i) {
       const id  = REF_ID_CACHE[fn.toLowerCase()];
       const url = id ? 'https://drive.google.com/thumbnail?id=' + id + '&sz=w600' : '';
+      const safeCat = cat.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
       out += '<div class="ref-item">'
-           + (url ? '<img class="ref-item-img" src="' + url + '" loading="lazy" onclick="openZoomRefDrive('' + cat.replace(/'/g,"\'") + '',' + i + ')">' : '<div style="height:80px;display:flex;align-items:center;justify-content:center;color:#aaa;font-size:12px;background:#f5f5f5;">로딩 중...</div>')
+           + (url ? '<img class="ref-item-img" src="' + url + '" loading="lazy" onclick="openZoomRefDrive(\'' + safeCat + '\',' + i + ')">' : '<div style="height:80px;display:flex;align-items:center;justify-content:center;color:#aaa;font-size:12px;background:#f5f5f5;">로딩 중...</div>')
            + '<div class="ref-item-body"><div class="ref-item-title">' + fn + '</div></div>'
            + '</div>';
     });
@@ -1875,7 +1994,8 @@ async function saveDetail() {
   track('가격',    String(currentItem.price||''),      newPrice);
   track('코드',    String(currentItem.code||''),       newCode);
   track('모델',    String(currentItem.models||'').substring(0,30), newModels.substring(0,30));
-  track('상태',    labels[extra.status||'available'],  labels[newStatus]);
+  const statusKrLabel = STATUS_KR[newStatus] || newStatus;
+  track('상태', labels[normalizeStatus(extra.status||'available')], labels[newStatus]);
 
   // 로컬 DB 업데이트
   const arr = DB[currentItem._cat];
@@ -1920,7 +2040,7 @@ async function saveDetail() {
       category: currentItem._cat,
       code:     currentItem.code,
       name:     currentItem.name,
-      status:   newStatus,
+      status:   STATUS_KR[newStatus] || newStatus,  // 시트엔 한글로 저장
       memo:     newMemo,
     });
     currentItem.status_gs = newStatus;
@@ -1964,7 +2084,7 @@ async function saveNewItem() {
       models:     item.models,
       image_note: item.image_note,
       image_path: item.image_path,
-      status:     item.status,
+      status:     STATUS_KR[item.status] || item.status,  // 시트엔 한글
       memo:       item.memo,
     });
     if (json.status !== 'ok') throw new Error(json.message);
@@ -2208,6 +2328,7 @@ function deleteHistItem(origIdx) {
 const STATUS_ALL = ['available','repair_sale','stock_check','unknown','repair_only','discontinued'];
 const STATUS_MAP = { available:'sel-green', repair_sale:'sel-purple', stock_check:'sel-amber', unknown:'sel-gray', repair_only:'sel-blue', discontinued:'sel-red' };
 function selectStatus(val) {
+  val = normalizeStatus(val);
   STATUS_ALL.forEach(s => {
     const el = document.getElementById('r-'+s);
     if (!el) return;
@@ -2228,7 +2349,28 @@ function selectNewStatus(val) {
   const el = document.getElementById('nr-'+val);
   if (el) el.classList.add(STATUS_MAP[val] || 'sel-green');
 }
+// status 영문키 → 한글 변환 맵
+const STATUS_KR = {
+  available:    '판매가능',
+  repair_sale:  '수리+판매가능',
+  stock_check:  '재고확인필요',
+  unknown:      '미확인',
+  repair_only:  '수리전용',
+  discontinued: '단종',
+};
+// 한글 → 영문키 역변환
+const STATUS_EN = Object.fromEntries(Object.entries(STATUS_KR).map(([k,v])=>[v,k]));
+
+// 영문키 또는 한글 모두 입력받아 처리
+function normalizeStatus(s) {
+  if (!s) return 'available';
+  if (STATUS_KR[s]) return s;           // 이미 영문키
+  if (STATUS_EN[s]) return STATUS_EN[s]; // 한글 → 영문키
+  return 'available';
+}
+
 function statusBadge(s) {
+  s = normalizeStatus(s);
   const map = {
     available:    ['badge-available',    '✅ 판매가능'],
     repair_sale:  ['badge-repair_sale',  '🛒 수리+판매'],
