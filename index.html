@@ -1885,16 +1885,19 @@ if (!driveFiles.length && !refs.length) {
     </div>`;
 }
 
+// ── 로컬 추가 버튼 ──
+if (admin) {
+  const escapedCatForAdd = cat.replace(/'/g, "\\'");
+  out += `
+    <div style="border-top:1px solid #e0d8f5;padding-top:12px;margin-top:4px;">
+      <div style="font-size:12px;font-weight:700;color:var(--lav-dk);margin-bottom:4px;">📱 이 기기에 추가</div>
+      <div style="font-size:11px;color:#888;margin-bottom:6px;">다른 기기에서 보려면 
+        <a href="${folderUrl}" target="_blank" style="color:var(--lav-dk);">드라이브 폴더</a>에 올리세요
+      </div>
+      <input type="file" accept="image/*" multiple onchange="addRefImages(this, '${escapedCatForAdd}')" style="font-size:12px;">
+    </div>`;
+}
 
-  // ── 로컬 추가 버튼 ──
-  if (admin) {
-    out += '<div style="border-top:1px solid #e0d8f5;padding-top:12px;margin-top:4px;">'
-         + '<div style="font-size:12px;font-weight:700;color:var(--lav-dk);margin-bottom:4px;">📱 이 기기에 추가</div>'
-         + '<div style="font-size:11px;color:#888;margin-bottom:6px;">다른 기기에서 보려면 '
-         + '<a href="' + folderUrl + '" target="_blank" style="color:var(--lav-dk);">드라이브 폴더</a>에 올리세요</div>'
-         + '<input type="file" accept="image/*" multiple onchange="addRefImages(this,'' + cat.replace(/'/g,"\'") + '')" style="font-size:12px;">'
-         + '</div>';
-  }
   body.innerHTML = out;
 }
 
