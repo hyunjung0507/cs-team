@@ -1885,7 +1885,7 @@ if (!driveFiles.length && !refs.length) {
     </div>`;
 }
 
-// ── 로컬 추가 버튼 ──
+// ── 로컬 추가 버튼 ── (기존 1888번 줄 시작점)
 if (admin) {
   const escapedCatForAdd = cat.replace(/'/g, "\\'");
   out += `
@@ -1899,21 +1899,30 @@ if (admin) {
 }
 
   body.innerHTML = out;
-}
+} // <-- 이 중괄호가 렌더링 함수를 닫는 중요한 부분입니다.
 
 function openZoomRefDrive(cat, idx) {
   const files = getRefFilesForCat(cat);
-  const urls  = files.map(function(fn) {
+  const urls = files.map(function(fn) {
     const id = REF_ID_CACHE[fn.toLowerCase()];
-    return id ? 'https://drive.google.com/thumbnail?id=' + id + '&sz=w1200' : null;
+    return id ? `https://google.com{id}&sz=w1200` : null;
   }).filter(Boolean);
+
   if (!urls.length) return;
-  currentImgUrls = urls; currentImgIdx = Math.min(idx, urls.length-1);
-  document.getElementById('zoom-img').src = urls[currentImgIdx];
-  document.getElementById('zoom-title').textContent = cat + ' 참고자료 ' + (currentImgIdx+1);
-  zoomReset(); updateZoomNav();
-  document.getElementById('zoom-overlay').classList.add('open');
-}
+  currentImgUrls = urls; 
+  currentImgIdx = Math.min(idx, urls.length - 1);
+  
+  const zoomImg = document.getElementById('zoom-img');
+  const zoomTitle = document.getElementById('zoom-title');
+  if (zoomImg) zoomImg.src = urls[currentImgIdx];
+  if (zoomTitle) zoomTitle.textContent = `${cat} 참고자료 ${currentImgIdx + 1}`;
+  
+  zoomReset(); 
+  updateZoomNav();
+  const zoomOverlay = document.getElementById('zoom-overlay');
+  if (zoomOverlay) zoomOverlay.classList.add('open');
+} // <-- openZoomRefDrive 함수 끝 (기존 1916번 줄 부근)
+
 
 function openZoomRef(i, cat) {
   const refs = refData[cat] || [];
