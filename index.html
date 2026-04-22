@@ -549,7 +549,7 @@ a { color: inherit; text-decoration: none; }
     <div id="login-form" style="display:none;">
       <div id="login-form-header" style="display:flex;align-items:center;gap:8px;margin-bottom:14px;padding:10px 14px;border-radius:10px;font-weight:700;font-size:14px;"></div>
       <div id="login-name-wrap" style="display:none;margin-bottom:10px;">
-        <input id="login-name" class="login-input" type="text" placeholder="이름 입력"
+        <input id="login-name" class="login-input" type="text" placeholder="이름을 입력하세요"
                style="letter-spacing:0;" maxlength="20"
                onkeydown="if(event.key==='Enter')matsLogin()">
       </div>
@@ -1013,23 +1013,24 @@ function endLoad()   { lb.className='loading-bar done'; setTimeout(()=>lb.classN
 function showLoginForm(type) {
   matsLoginType = type;
   const headers = {
-    admin:     { icon:'👑', label:'관리자 로그인',   bg:'linear-gradient(135deg,#f0a060,#e07030)' },
-    staff:     { icon:'🏢', label:'본사 직원 입장',   bg:'linear-gradient(135deg,#5ba3d0,#3a7fb0)' },
-    outsource: { icon:'☀️', label:'외주 파트너 입장', bg:'linear-gradient(135deg,#5bbf8a,#2e7a55)' },
+    admin:     { icon:'👑', label:'관리자 로그인',   bg:'linear-gradient(135deg,#f0a060,#e07030)', pw:'관리자 비밀번호' },
+    staff:     { icon:'🏢', label:'본사 직원 입장',   bg:'linear-gradient(135deg,#5ba3d0,#3a7fb0)', pw:'본사 공통 비밀번호' },
+    outsource: { icon:'☀️', label:'외주 파트너 입장', bg:'linear-gradient(135deg,#5bbf8a,#2e7a55)', pw:'시즌 코드' },
   };
   const h = headers[type];
   const hdr = document.getElementById('login-form-header');
   hdr.style.background = h.bg; hdr.style.color = '#fff';
-  hdr.innerHTML = '<span style="font-size:20px;">' + h.icon + '</span> ' + h.label;
-  document.getElementById('login-name-wrap').style.display = (type !== 'admin') ? '' : 'none';
-  document.getElementById('login-pw').placeholder = type==='admin' ? '관리자 비밀번호' : type==='staff' ? '본사 공통 비밀번호' : '시즌 코드';
+  hdr.innerHTML = `<span style="font-size:20px;">${h.icon}</span> ${h.label}`;
+  // ★ 모든 유형에서 이름 입력받음 (관리자도 포함)
+  document.getElementById('login-name-wrap').style.display = '';
+  document.getElementById('login-pw').placeholder = h.pw;
   document.getElementById('login-name').value = '';
   document.getElementById('login-pw').value = '';
   document.getElementById('login-err').innerHTML = '&nbsp;';
   document.getElementById('login-sub').textContent = h.label;
   document.getElementById('login-type-btns').style.display = 'none';
   document.getElementById('login-form').style.display = '';
-  setTimeout(() => (type==='admin' ? document.getElementById('login-pw') : document.getElementById('login-name')).focus(), 100);
+  setTimeout(() => document.getElementById('login-name').focus(), 100);
 }
 let matsLoginType = '';
 
@@ -1046,8 +1047,8 @@ async function matsLogin() {
   const name  = (document.getElementById('login-name').value||'').trim();
   const pw    = (document.getElementById('login-pw').value||'').trim();
   const errEl = document.getElementById('login-err');
-  if (!pw)                        { errEl.textContent = '비밀번호/코드를 입력하세요.'; return; }
-  if (type !== 'admin' && !name)  { errEl.textContent = '이름을 입력하세요.'; return; }
+  if (!name)  { errEl.textContent = '이름을 입력하세요.'; return; }
+  if (!pw)    { errEl.textContent = '비밀번호/코드를 입력하세요.'; return; }
   document.getElementById('login-form').style.display = 'none';
   document.getElementById('login-loading').style.display = '';
   try {
@@ -1223,15 +1224,28 @@ function applyUserUI() {
 
 function doLogout() {
   currentUser = null;
-  document.getElementById('pw-input').value = '';
+  matsLoginType = '';
+  // 로그인 폼 완전 초기화
+  ['login-name','login-pw'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  const tbEl = document.getElementById('login-type-btns');
+  const fmEl = document.getElementById('login-form');
+  const ldEl = document.getElementById('login-loading');
+  const subEl = document.getElementById('login-sub');
+  const errEl = document.getElementById('login-err');
+  if (tbEl) tbEl.style.display  = '';
+  if (fmEl) fmEl.style.display  = 'none';
+  if (ldEl) ldEl.style.display  = 'none';
+  if (subEl) subEl.textContent  = '입장 유형을 선택하세요';
+  if (errEl) errEl.innerHTML    = '&nbsp;';
   document.getElementById('main-app').classList.add('hidden');
   document.getElementById('login-page').style.display = 'flex';
-  // 이름 선택 오버레이 제거
   const ov = document.getElementById('name-selector-overlay');
   if (ov) ov.remove();
 }
 
-function isAdmin() { return currentUser && currentUser.role === 'admin'; }
 
 /* ══════════════════════════════════════
    데이터 로드 (구글 시트 GAS)
@@ -1304,8 +1318,9 @@ function parseSheetData(rows) {
    UI 초기화
 ══════════════════════════════════════ */
 function initUI() {
-  const sheets = Object.keys(DB);
-  const total  = Object.values(DB).reduce((s, v) => s + v.length, 0);
+  const allSheets = Object.keys(DB);
+  const sheets = allSheets.filter(n => !n.startsWith('__'));
+  const total  = sheets.reduce((s, n) => s + (DB[n]||[]).length, 0);
   document.getElementById('total-info').textContent =
     `${sheets.length}개 제품군 · 총 ${total.toLocaleString()}개 품목`;
 
@@ -1322,11 +1337,13 @@ function initUI() {
 function renderCatList(sheets) {
   const body = document.getElementById('cat-list-body');
   body.innerHTML = '';
-  if (!sheets.length) {
+  // ★ __ 로 시작하는 내부 시트 필터링
+  const visSheets = sheets.filter(n => !n.startsWith('__'));
+  if (!visSheets.length) {
     body.innerHTML = '<div class="no-result-row">데이터 없음</div>';
     return;
   }
-  sheets.forEach(name => {
+  visSheets.forEach(name => {
     const cnt = (DB[name] || []).length;
     const div = document.createElement('div');
     div.className = 'cat-row';
@@ -2568,11 +2585,13 @@ function resetAll() {
   showToast('🧹 초기화!');
 }
 function populateSelects(sheets) {
+  // ★ __ 시작 시트 제외
+  const visSheets = sheets.filter(n => !n.startsWith('__'));
   ['new-cat','bulk-cat'].forEach(id => {
     const sel = document.getElementById(id);
     const cur = sel.value;
     sel.innerHTML = '<option value="">선택...</option>';
-    sheets.forEach(n => sel.innerHTML += `<option value="${esc(n)}"${n===cur?' selected':''}>${esc(n)}</option>`);
+    visSheets.forEach(n => sel.innerHTML += `<option value="${esc(n)}"${n===cur?' selected':''}>${esc(n)}</option>`);
   });
 }
 function updateCounts() {
