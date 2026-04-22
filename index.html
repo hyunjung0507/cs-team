@@ -683,7 +683,9 @@ a { color: inherit; text-decoration: none; }
       <!-- 참고자료 -->
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
         <div class="section-title" style="margin-bottom:0;">📚 참고자료</div>
-        <button class="btn btn-sm" style="background:var(--lav-lt);color:var(--lav-dk);border-color:var(--lav);" onclick="showRefModal()">참고자료 보기</button>
+        <button id="ref-view-btn" class="btn btn-sm" style="background:var(--lav-lt);color:var(--lav-dk);border-color:var(--lav);" onclick="showRefModal()">
+          📚 참고자료 보기 <span id="ref-count-badge" style="display:none;background:var(--lav-dk);color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;margin-left:4px;"></span>
+        </button>
       </div>
 
       <div class="divider"></div>
@@ -1406,7 +1408,8 @@ async function openDetail(item) {
 
   // ★ 페이지 먼저 표시 → 이미지는 비동기 로드
   showPage('detail');
-  buildCarousel(item);  // 비동기 실행
+  buildCarousel(item);
+  updateRefBadge(item._cat);  // 참고자료 뱃지 업데이트
 }
 
 /* ══════════════════════════════════════
@@ -1665,6 +1668,19 @@ function addLocalImages(input) {
 /* ══════════════════════════════════════
    참고자료 모달
 ══════════════════════════════════════ */
+// 참고자료 버튼의 뱃지 업데이트
+function updateRefBadge(cat) {
+  const badge = document.getElementById('ref-count-badge');
+  if (!badge) return;
+  const refs = refData[cat] || [];
+  if (refs.length > 0) {
+    badge.textContent = refs.length + '장';
+    badge.style.display = '';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
 function showRefModal() {
   if (!currentItem) return;
   const cat  = currentItem._cat;
@@ -1701,7 +1717,8 @@ function renderRefBody(cat, refs) {
 
   if (admin)
     html += `<div style="border-top:1px solid #e0d8f5;padding-top:12px;margin-top:4px;">
-      <div style="font-size:12px;font-weight:700;color:var(--lav-dk);margin-bottom:6px;">+ 참고자료 이미지 추가</div>
+      <div style="font-size:12px;font-weight:700;color:var(--lav-dk);margin-bottom:4px;">+ 참고자료 이미지 추가</div>
+      <div style="font-size:11px;color:#888;margin-bottom:6px;">💡 브라우저 로컬에 저장됩니다 (이 기기에서만 보임)</div>
       <input type="file" accept="image/*" multiple onchange="addRefImages(this,'${esc(cat)}')" style="font-size:12px;">
     </div>`;
   body.innerHTML = html;
@@ -1719,17 +1736,23 @@ function openZoomRef(i, cat) {
 }
 function addRefImages(input, cat) {
   const files = [...input.files];
+  if (!files.length) return;
   if (!refData[cat]) refData[cat] = [];
   let done = 0;
   files.forEach(file => {
     const reader = new FileReader();
     reader.onload = e => {
-      refData[cat].push({ src: e.target.result, label: file.name, desc: '' });
+      refData[cat].push({ src: e.target.result, label: file.name, desc: '', savedAt: today() });
       done++;
       if (done === files.length) {
-        saveRef();
-        showToast(`참고자료 ${done}장 추가됨`);
+        try {
+          saveRef();
+          showToast(`✅ 참고자료 ${done}장 저장 완료 (브라우저 로컬)`);
+        } catch(err) {
+          showToast('⚠️ 저장 실패: 용량 초과. 이미지를 줄여주세요.');
+        }
         renderRefBody(cat, refData[cat]);
+        updateRefBadge(cat);  // 상세화면 뱃지 업데이트
       }
     };
     reader.readAsDataURL(file);
@@ -1744,6 +1767,7 @@ function deleteRef(cat, i) {
   refData[cat].splice(i, 1);
   saveRef(); showToast('삭제됨');
   renderRefBody(cat, refData[cat]);
+  updateRefBadge(cat);
 }
 function saveRef() {
   try { localStorage.setItem(CFG.REF_KEY, JSON.stringify(refData)); } catch(e) { showToast('저장 공간 부족'); }
@@ -2085,18 +2109,42 @@ function clearHistory() {
 }
 
 function renderHistory(history) {
-  const el = document.getElementById('history-list');
+  const el  = document.getElementById('history-list');
   const btn = document.getElementById('clear-history-btn');
   if (btn) btn.style.display = (history?.length && isAdmin()) ? '' : 'none';
-  if (!history?.length) { el.innerHTML = '<div style="font-size:12px;color:var(--gray);">수정 이력이 없습니다.</div>'; return; }
-  el.innerHTML = history.slice().reverse().map(h => `
-    <div class="history-item">
-      ${h.date ? `<span class="h-date">${h.date}</span>` : ''}
-      <span class="h-field">${esc(h.field)}</span>
-      <span class="h-old">${esc(h.old)}</span>
-      <span style="color:#aaa;">→</span>
-      <span class="h-new">${esc(h.new)}</span>
+  if (!history?.length) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--gray);">수정 이력이 없습니다.</div>';
+    return;
+  }
+  // 역순 인덱스(원본 배열 기준) 계산
+  const reversed = history.map((h, i) => ({ h, origIdx: i })).reverse();
+  el.innerHTML = reversed.map(({ h, origIdx }) => `
+    <div class="history-item" style="justify-content:space-between;">
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;flex:1;">
+        ${h.date ? `<span class="h-date">${esc(h.date)}</span>` : ''}
+        <span class="h-field">${esc(h.field)}</span>
+        <span class="h-old">${esc(h.old)}</span>
+        <span style="color:#aaa;">→</span>
+        <span class="h-new">${esc(h.new)}</span>
+      </div>
+      ${isAdmin() ? `<button onclick="deleteHistItem(${origIdx})"
+        style="flex-shrink:0;width:20px;height:20px;border-radius:50%;border:1px solid #e0c0c0;
+               background:#fee2e2;color:#991b1b;font-size:12px;line-height:1;cursor:pointer;margin-left:6px;"
+        title="이 이력 삭제">×</button>` : ''}
     </div>`).join('');
+}
+
+// 특정 이력 1개 삭제
+function deleteHistItem(origIdx) {
+  if (!currentItemKey) return;
+  const extra = extraData[currentItemKey] || {};
+  const history = extra.history || [];
+  history.splice(origIdx, 1);
+  extra.history = history;
+  extraData[currentItemKey] = extra;
+  saveExtra();
+  renderHistory(history);
+  showToast('이력 삭제됨');
 }
 
 /* ══════════════════════════════════════
@@ -2241,15 +2289,17 @@ function deleteCurrentImg() {
 
 // ★ GAS 호출 헬퍼 — GET 방식으로 CORS 없이 호출
 async function gasGet(action, params) {
-  const url = new URL(CFG.GAS_URL);
-  url.searchParams.set('action', action);
+  // ★ URL 파라미터를 직접 문자열로 조합 (리다이렉트 시 손실 방지)
+  let qs = 'action=' + encodeURIComponent(action);
   if (params) {
     Object.keys(params).forEach(k => {
-      if (params[k] !== null && params[k] !== undefined)
-        url.searchParams.set(k, String(params[k]));
+      if (params[k] !== null && params[k] !== undefined && params[k] !== '') {
+        qs += '&' + encodeURIComponent(k) + '=' + encodeURIComponent(String(params[k]));
+      }
     });
   }
-  const res  = await fetch(url.toString());
+  const fullUrl = CFG.GAS_URL + '?' + qs;
+  const res  = await fetch(fullUrl);
   const json = await res.json();
   return json;
 }
