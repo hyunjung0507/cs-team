@@ -942,6 +942,8 @@ let currentUser    = null;
 let currentImgUrls = [];
 let currentImgMeta  = [];  // [{id, name}, ...]
 let IMG_ID_CACHE   = {};   // 파일명(소문자) → fileId 전역 캐시
+let REF_ID_CACHE   = {};   // reference_images 파일명 → fileId
+let REF_CACHE_LOADED = false;
 let IMG_CACHE_LOADED = false; // 캐시 로드 완료 여부
 let currentImgIdx  = 0;
 // 줌 관련
@@ -1147,6 +1149,7 @@ async function loadData() {
   initUI();
   // 이미지 ID 캐시 백그라운드 로드 (UI 차단 없이)
   loadImageCache();
+  loadRefImageCache();
 }
 
 function parseSheetData(rows) {
@@ -1672,9 +1675,11 @@ function addLocalImages(input) {
 function updateRefBadge(cat) {
   const badge = document.getElementById('ref-count-badge');
   if (!badge) return;
-  const refs = refData[cat] || [];
-  if (refs.length > 0) {
-    badge.textContent = refs.length + '장';
+  const local = (refData[cat] || []).length;
+  const drive = getRefFilesForCat(cat).length;
+  const total = local + drive;
+  if (total > 0) {
+    badge.textContent = total + '장';
     badge.style.display = '';
   } else {
     badge.style.display = 'none';
@@ -1683,46 +1688,96 @@ function updateRefBadge(cat) {
 
 function showRefModal() {
   if (!currentItem) return;
-  const cat  = currentItem._cat;
-  const refs = refData[cat] || [];
-  document.getElementById('ref-modal-title').textContent = `📚 참고자료 — ${cat}`;
-  renderRefBody(cat, refs);
+  const cat = currentItem._cat;
+  document.getElementById('ref-modal-title').textContent = '📚 참고자료 — ' + cat;
+  const driveFiles = getRefFilesForCat(cat);
+  const localRefs  = refData[cat] || [];
+  renderRefBody(cat, localRefs, driveFiles);
   document.getElementById('ref-modal').classList.add('open');
 }
-function renderRefBody(cat, refs) {
-  const admin = isAdmin();
-  const body  = document.getElementById('ref-modal-body');
-  let html = '';
-  if (!refs.length)
-    html = '<div style="text-align:center;padding:24px;color:#aaa;">등록된 참고자료가 없습니다.</div>';
-  else
-    html = refs.map((r,i) => `
-      <div class="ref-item">
-        <img class="ref-item-img" src="${r.src}" loading="lazy"
-             onclick="openZoomRef(${i},'${esc(cat)}')"
-             onerror="this.style.display='none'">
-        <div class="ref-item-body">
-          ${admin ? `
-            <div class="ref-item-edit">
-              <input class="ref-edit-input" value="${esc(r.label||`참고 ${i+1}`)}" placeholder="제목"
-                     onchange="updateRef('${esc(cat)}',${i},'label',this.value)">
-              <textarea class="ref-edit-ta" placeholder="설명 입력"
-                        onchange="updateRef('${esc(cat)}',${i},'desc',this.value)">${esc(r.desc||'')}</textarea>
-              <button class="ref-del-btn" onclick="deleteRef('${esc(cat)}',${i})">삭제</button>
-            </div>` : `
-            <div class="ref-item-title">${esc(r.label||`참고 ${i+1}`)}</div>
-            ${r.desc ? `<div class="ref-item-desc">${esc(r.desc)}</div>` : ''}`}
-        </div>
-      </div>`).join('');
+function renderRefBody(cat, refs, driveFiles) {
+  if (!driveFiles) driveFiles = getRefFilesForCat(cat);
+  const admin  = isAdmin();
+  const body   = document.getElementById('ref-modal-body');
+  const folderUrl = 'https://drive.google.com/drive/folders/1eBa9IOs9CFSMuV_E89jsJVMa2Hi2P5JJ';
+  let out = '';
 
-  if (admin)
-    html += `<div style="border-top:1px solid #e0d8f5;padding-top:12px;margin-top:4px;">
-      <div style="font-size:12px;font-weight:700;color:var(--lav-dk);margin-bottom:4px;">+ 참고자료 이미지 추가</div>
-      <div style="font-size:11px;color:#888;margin-bottom:6px;">💡 브라우저 로컬에 저장됩니다 (이 기기에서만 보임)</div>
-      <input type="file" accept="image/*" multiple onchange="addRefImages(this,'${esc(cat)}')" style="font-size:12px;">
-    </div>`;
-  body.innerHTML = html;
+  // ── 드라이브 참고자료 ──
+  if (driveFiles.length > 0) {
+    out += '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:var(--lav-lt);border-radius:8px;margin-bottom:8px;">'
+         + '<span style="font-size:12px;font-weight:700;color:var(--lav-dk);">☁️ 드라이브 참고자료 (' + driveFiles.length + '장)</span>'
+         + '<a href="' + folderUrl + '" target="_blank" style="font-size:11px;color:var(--lav-dk);text-decoration:underline;">폴더 열기 →</a>'
+         + '</div>';
+    driveFiles.forEach(function(fn, i) {
+      const id  = REF_ID_CACHE[fn.toLowerCase()];
+      const url = id ? 'https://drive.google.com/thumbnail?id=' + id + '&sz=w600' : '';
+      out += '<div class="ref-item">'
+           + (url ? '<img class="ref-item-img" src="' + url + '" loading="lazy" onclick="openZoomRefDrive('' + cat.replace(/'/g,"\'") + '',' + i + ')">' : '<div style="height:80px;display:flex;align-items:center;justify-content:center;color:#aaa;font-size:12px;background:#f5f5f5;">로딩 중...</div>')
+           + '<div class="ref-item-body"><div class="ref-item-title">' + fn + '</div></div>'
+           + '</div>';
+    });
+    out += '<div style="height:1px;background:#e0d8f5;margin:12px 0;"></div>';
+  } else {
+    out += '<div style="text-align:center;padding:16px;background:var(--lav-lt);border-radius:10px;margin-bottom:10px;">'
+         + '<div style="font-size:12px;color:var(--lav-dk);margin-bottom:8px;">☁️ 드라이브에 참고자료 없음</div>'
+         + '<a href="' + folderUrl + '" target="_blank" style="font-size:12px;font-weight:700;color:var(--lav-dk);text-decoration:underline;">reference_images 폴더에 이미지 올리기 →</a>'
+         + '<div style="font-size:11px;color:#888;margin-top:4px;">파일명 예: ' + cat + '_참고001.png</div>'
+         + '</div>';
+  }
+
+  // ── 로컬(이 기기) 참고자료 ──
+  if (refs.length > 0) {
+    out += '<div style="font-size:12px;font-weight:700;color:#666;padding:4px 8px;background:#f5f5f5;border-radius:6px;margin-bottom:8px;">📱 이 기기 저장 (' + refs.length + '장)</div>';
+    refs.forEach(function(r, i) {
+      out += '<div class="ref-item">'
+           + '<img class="ref-item-img" src="' + r.src + '" loading="lazy" onclick="openZoomRef(' + i + ','' + cat.replace(/'/g,"\'") + '')" onerror="this.style.display='none'">'
+           + '<div class="ref-item-body">'
+           + (admin
+             ? '<div class="ref-item-edit">'
+               + '<input class="ref-edit-input" value="' + (r.label||('참고 '+(i+1))).replace(/"/g,'&quot;') + '" placeholder="제목" onchange="updateRef('' + cat.replace(/'/g,"\'") + '',' + i + ','label',this.value)">'
+               + '<textarea class="ref-edit-ta" placeholder="설명" onchange="updateRef('' + cat.replace(/'/g,"\'") + '',' + i + ','desc',this.value)">' + (r.desc||'') + '</textarea>'
+               + '<button class="ref-del-btn" onclick="deleteRef('' + cat.replace(/'/g,"\'") + '',' + i + ')">삭제</button>'
+               + '</div>'
+             : '<div class="ref-item-title">' + (r.label||('참고 '+(i+1))) + '</div>'
+               + (r.desc ? '<div class="ref-item-desc">' + r.desc + '</div>' : ''))
+           + '</div></div>';
+    });
+  }
+
+  if (!driveFiles.length && !refs.length) {
+    out = '<div style="text-align:center;padding:30px;color:#aaa;">'
+        + '<div style="font-size:32px;margin-bottom:8px;">📂</div>'
+        + '<div>참고자료가 없습니다</div>'
+        + (admin ? '<a href="' + folderUrl + '" target="_blank" style="display:inline-block;margin-top:10px;font-size:12px;color:var(--lav-dk);font-weight:700;">☁️ 드라이브에 올리기 →</a>' : '')
+        + '</div>';
+  }
+
+  // ── 로컬 추가 버튼 ──
+  if (admin) {
+    out += '<div style="border-top:1px solid #e0d8f5;padding-top:12px;margin-top:4px;">'
+         + '<div style="font-size:12px;font-weight:700;color:var(--lav-dk);margin-bottom:4px;">📱 이 기기에 추가</div>'
+         + '<div style="font-size:11px;color:#888;margin-bottom:6px;">다른 기기에서 보려면 '
+         + '<a href="' + folderUrl + '" target="_blank" style="color:var(--lav-dk);">드라이브 폴더</a>에 올리세요</div>'
+         + '<input type="file" accept="image/*" multiple onchange="addRefImages(this,'' + cat.replace(/'/g,"\'") + '')" style="font-size:12px;">'
+         + '</div>';
+  }
+  body.innerHTML = out;
 }
+
+function openZoomRefDrive(cat, idx) {
+  const files = getRefFilesForCat(cat);
+  const urls  = files.map(function(fn) {
+    const id = REF_ID_CACHE[fn.toLowerCase()];
+    return id ? 'https://drive.google.com/thumbnail?id=' + id + '&sz=w1200' : null;
+  }).filter(Boolean);
+  if (!urls.length) return;
+  currentImgUrls = urls; currentImgIdx = Math.min(idx, urls.length-1);
+  document.getElementById('zoom-img').src = urls[currentImgIdx];
+  document.getElementById('zoom-title').textContent = cat + ' 참고자료 ' + (currentImgIdx+1);
+  zoomReset(); updateZoomNav();
+  document.getElementById('zoom-overlay').classList.add('open');
+}
+
 function openZoomRef(i, cat) {
   const refs = refData[cat] || [];
   const urls = refs.map(r => r.src);
@@ -1766,7 +1821,7 @@ function deleteRef(cat, i) {
   if (!confirm('삭제할까요?')) return;
   refData[cat].splice(i, 1);
   saveRef(); showToast('삭제됨');
-  renderRefBody(cat, refData[cat]);
+  renderRefBody(cat, refData[cat], getRefFilesForCat(cat));
   updateRefBadge(cat);
 }
 function saveRef() {
@@ -2233,6 +2288,30 @@ function refreshResultThumbnails() {
     if (id) img.src = `https://drive.google.com/thumbnail?id=${id}&sz=w80`;
   });
 }
+async function loadRefImageCache() {
+  try {
+    const json = await gasGet('getAllImageIds', { folder: CFG.REF_FOLDER });
+    if (json.status === 'ok' && json.ids) {
+      REF_ID_CACHE = json.ids;
+      REF_CACHE_LOADED = true;
+      // 이미 열려있는 참고자료 모달 갱신
+      if (document.getElementById('ref-modal')?.classList.contains('open')) {
+        showRefModal();
+      }
+      // 뱃지 갱신
+      if (currentItem) updateRefBadge(currentItem._cat);
+    }
+  } catch(e) { console.warn('참고자료 캐시 실패:', e); }
+}
+
+function getRefFilesForCat(cat) {
+  if (!cat) return [];
+  const key = cat.toLowerCase().replace(/[\s_]+/g, '');
+  return Object.keys(REF_ID_CACHE).filter(fn => {
+    return fn.toLowerCase().replace(/[\s_]+/g, '').includes(key);
+  }).sort();
+}
+
 function getIdFromCache(filename) {
   if (!filename) return null;
   return IMG_ID_CACHE[filename.toLowerCase().trim()] || null;
