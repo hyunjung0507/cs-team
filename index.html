@@ -1022,7 +1022,7 @@ function showLoginForm(type) {
   hdr.style.background = h.bg; hdr.style.color = '#fff';
   hdr.innerHTML = `<span style="font-size:20px;">${h.icon}</span> ${h.label}`;
   // ★ 모든 유형에서 이름 입력받음 (관리자도 포함)
-  document.getElementById('login-name-wrap').style.display = '';
+  document.getElementById('login-name-wrap').style.display = 'block';  // 명시적 block
   document.getElementById('login-pw').placeholder = h.pw;
   document.getElementById('login-name').value = '';
   document.getElementById('login-pw').value = '';
