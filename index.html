@@ -816,27 +816,51 @@ a { color: inherit; text-decoration: none; }
 
       <!-- 제품군 추가 -->
       <div id="tab-newcat" class="tab-panel">
-        <div style="max-width:400px;">
-          <div class="field-group" style="margin-bottom:12px;"><div class="field-label">새 제품군 이름 *</div><input class="field-input" id="new-cat-name" placeholder="예: 인덕션"></div>
-          <button class="btn btn-mint" onclick="addNewCategory()">✅ 추가</button>
+        <!-- 제품군 추가 -->
+        <div style="background:#fff;border:1.5px solid var(--border);border-radius:10px;padding:14px;margin-bottom:16px;">
+          <div style="font-size:13px;font-weight:700;color:var(--sky-dk);margin-bottom:10px;">➕ 새 제품군 추가</div>
+          <div style="display:flex;gap:8px;align-items:flex-end;">
+            <div class="field-group" style="flex:1;margin-bottom:0;">
+              <input class="field-input" id="new-cat-name" placeholder="예: 인덕션히터"
+                     onkeydown="if(event.key==='Enter')addNewCategory()">
+            </div>
+            <button class="btn btn-mint" onclick="addNewCategory()" style="white-space:nowrap;">✅ 추가</button>
+          </div>
         </div>
-      </div>
+
+        <!-- 제품군 목록 + 수정/삭제 -->
+        <div style="background:#fff;border:1.5px solid var(--border);border-radius:10px;padding:14px;">
+          <div style="font-size:13px;font-weight:700;color:var(--sky-dk);margin-bottom:10px;">📂 현재 제품군 목록</div>
+          <div id="cat-manage-list" style="display:flex;flex-direction:column;gap:6px;"></div>
+        </div>
 
       <!-- 사용자 관리 -->
       <div id="tab-users" class="tab-panel">
-        <div style="background:var(--peach-lt);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:12px;color:var(--peach-dk);line-height:1.7;">
-          ✏️ <b>관리자</b>: 수정·추가·삭제 가능 &nbsp;|&nbsp; 👁️ <b>뷰어</b>: 조회만 가능
+        <div style="background:var(--sky-lt);border-radius:12px;padding:16px;margin-bottom:14px;border:1.5px solid var(--sky-dk);">
+          <div style="font-size:14px;font-weight:800;color:var(--sky-dk);margin-bottom:10px;">👥 직원 관리 방법</div>
+          <div style="font-size:12px;color:#444;line-height:2;">
+            직원 추가·수정·삭제는 <b>구글 시트에서 직접</b> 관리합니다.<br>
+            앱 로딩 속도를 빠르게 유지하고 로직 충돌을 방지하기 위해<br>
+            시트 기반 관리 방식을 사용합니다.
+          </div>
         </div>
-        <div class="detail-grid" style="margin-bottom:12px;">
-          <div class="field-group"><div class="field-label">이름</div><input class="field-input" id="new-user-name" placeholder="이름 입력"></div>
-          <div class="field-group"><div class="field-label">권한</div><select class="field-input" id="new-user-role"><option value="admin">✏️ 관리자</option><option value="viewer">👁️ 뷰어</option></select></div>
-        </div>
-        <button class="btn btn-mint" onclick="addUser()" style="margin-bottom:16px;">+ 사용자 추가</button>
-        <div id="user-list"></div>
-        <div style="margin-top:16px;padding:12px 14px;background:#f5fbff;border-radius:10px;border:1px solid var(--border);font-size:12px;color:var(--sky-dk);line-height:1.8;">
-          🔒 <b>개별 비밀번호 설정</b>: 사용자 목록에서 🔑 버튼 클릭<br>
-          비밀번호 설정 시 이름 선택 후 별도 비밀번호 입력 필요<br>
-          비밀번호 없으면 이름만 클릭해도 바로 입장
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div style="background:#fff;border:1.5px solid var(--border);border-radius:10px;padding:14px;">
+            <div style="font-size:13px;font-weight:700;margin-bottom:8px;">📋 [__본사직원명단] 시트 구조</div>
+            <table style="width:100%;font-size:12px;border-collapse:collapse;">
+              <tr style="background:var(--sky-lt);">
+                <th style="padding:6px 10px;border:1px solid #dde;text-align:left;">A열: 이름</th>
+                <th style="padding:6px 10px;border:1px solid #dde;text-align:left;">B열: 상태</th>
+                <th style="padding:6px 10px;border:1px solid #dde;text-align:left;">C열: 권한</th>
+              </tr>
+              <tr><td style="padding:6px 10px;border:1px solid #dde;">박현정</td><td style="padding:6px 10px;border:1px solid #dde;">재직</td><td style="padding:6px 10px;border:1px solid #dde;">관리자</td></tr>
+              <tr style="background:#fafafa;"><td style="padding:6px 10px;border:1px solid #dde;">홍길동</td><td style="padding:6px 10px;border:1px solid #dde;">재직</td><td style="padding:6px 10px;border:1px solid #dde;">일반</td></tr>
+            </table>
+            <div style="font-size:11px;color:#888;margin-top:8px;">• 상태: <b>재직</b> / 퇴사 &nbsp;|&nbsp; 권한: <b>관리자</b> / 일반</div>
+          </div>
+          <button class="btn btn-mint" onclick="window.open('https://docs.google.com/spreadsheets/d/1PVSCbRmt_up1TKLjgL7qqlCgRoWV_EjGvMg2w4z03Eg','_blank')">
+            📊 구글 시트에서 직원 명단 관리하기 →
+          </button>
         </div>
       </div>
 
@@ -871,6 +895,7 @@ a { color: inherit; text-decoration: none; }
       <span class="modal-title" id="ref-modal-title">📚 참고자료</span>
       <button class="modal-close" onclick="closeModal('ref-modal')">×</button>
     </div>
+    <div id="ref-save-msg" style="display:none;background:#e0f7ee;color:#1e6b3a;font-size:12px;font-weight:700;padding:8px 16px;text-align:center;border-bottom:1px solid #a8d8b8;"></div>
     <div class="modal-body" id="ref-modal-body"></div>
   </div>
 </div>
@@ -912,6 +937,10 @@ a { color: inherit; text-decoration: none; }
           onclick="window.open('https://drive.google.com/drive/folders/1YBC5eUWRz5wy9vfeeKkwH86bbQem1WaX','_blank');closeModal('img-add-modal');">
           ☁️ 드라이브 폴더 열기
         </button>
+        <div style="margin-top:8px;font-size:11px;color:#2e5a2e;background:#f0fef4;padding:8px 10px;border-radius:8px;line-height:1.7;border:1px solid #a8d8b0;">
+          💡 드라이브에서 이미지를 업로드하면 <b>별도 저장 버튼 없이</b> 자동 저장됩니다.<br>
+          앱에서 <b>Ctrl+Shift+R</b> 새로고침 시 이미지가 표시됩니다.
+        </div>
       </div>
 
       <!-- 자재코드 없는 품목 -->
@@ -1325,6 +1354,7 @@ function initUI() {
     `${sheets.length}개 제품군 · 총 ${total.toLocaleString()}개 품목`;
 
   renderCatList(sheets);
+  renderCatManageList(sheets);  // 제품군 관리 목록
   populateSelects(sheets);
   document.getElementById('bulk-body').innerHTML = '';
   for (let i = 0; i < 3; i++) addBulkRow();
@@ -1831,92 +1861,62 @@ function showRefModal() {
   document.getElementById('ref-modal').classList.add('open');
 }
 function renderRefBody(cat, refs, driveFiles) {
-  if (!driveFiles) driveFiles = getRefFilesForCat(cat);
-  const admin  = isAdmin();
-  const body   = document.getElementById('ref-modal-body');
+  const admin = isAdmin();
+  const body  = document.getElementById('ref-modal-body');
   const folderUrl = 'https://drive.google.com/drive/folders/1eBa9IOs9CFSMuV_E89jsJVMa2Hi2P5JJ';
   let out = '';
 
-// ── 드라이브 참고자료 ──
-if (driveFiles.length > 0) {
-  out += `
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:var(--lav-lt);border-radius:8px;margin-bottom:8px;">
-      <span style="font-size:12px;font-weight:700;color:var(--lav-dk);">☁️ 드라이브 참고자료 (${driveFiles.length}장)</span>
-      <a href="${folderUrl}" target="_blank" style="font-size:11px;color:var(--lav-dk);text-decoration:underline;">폴더 열기 →</a>
+  // ── 등록된 참고자료 목록 ──
+  if (!refs || !refs.length) {
+    out += `<div style="text-align:center;padding:24px;color:#aaa;">
+      <div style="font-size:28px;margin-bottom:8px;">📂</div>
+      <div style="font-size:13px;">등록된 참고자료가 없습니다</div>
+      <div style="font-size:11px;margin-top:6px;color:#bbb;">아래 추가 버튼으로 이미지를 등록하세요</div>
     </div>`;
-  
-  driveFiles.forEach(function(fn, i) {
-    const id = REF_ID_CACHE[fn.toLowerCase()];
-    const url = id ? `https://google.com{id}&sz=w600` : '';
-    const safeCatForDrive = cat.replace(/'/g, "\\'");
-    
-    out += `
-      <div class="ref-item">
-        ${url ? `<img class="ref-item-img" src="${url}" loading="lazy" onclick="openZoomRefDrive('${safeCatForDrive}', ${i})">` : `<div style="height:80px;display:flex;align-items:center;justify-content:center;color:#aaa;font-size:12px;background:#f5f5f5;">로딩 중...</div>`}
-        <div class="ref-item-body"><div class="ref-item-title">${fn}</div></div>
-      </div>`;
-  });
-  out += '<div style="height:1px;background:#e0d8f5;margin:12px 0;"></div>';
-} else {
-  out += `
-    <div style="text-align:center;padding:16px;background:var(--lav-lt);border-radius:10px;margin-bottom:10px;">
-      <div style="font-size:12px;color:var(--lav-dk);margin-bottom:8px;">☁️ 드라이브에 참고자료 없음</div>
-      <a href="${folderUrl}" target="_blank" style="font-size:12px;font-weight:700;color:var(--lav-dk);text-decoration:underline;">reference_images 폴더에 이미지 올리기 →</a>
-      <div style="font-size:11px;color:#888;margin-top:4px;">파일명 예: ${cat}_참고001.png</div>
-    </div>`;
-}
-
-// ── 로컬(이 기기) 참고자료 ──
-if (refs.length > 0) {
-  out += `<div style="font-size:12px;font-weight:700;color:#666;padding:4px 8px;background:#f5f5f5;border-radius:6px;margin-bottom:8px;">📱 이 기기 저장 (${refs.length}장)</div>`;
-  refs.forEach(function(r, i) {
-    const escapedCatLocal = cat.replace(/'/g, "\\'"); 
-    const labelVal = (r.label || ('참고 ' + (i + 1))).replace(/"/g, '&quot;');
-    const descVal = r.desc || '';
-
-    out += `
-      <div class="ref-item">
-        <img class="ref-item-img" src="${r.src}" loading="lazy" onclick="openZoomRef(${i}, '${escapedCatLocal}')" onerror="this.style.display='none'">
+  } else {
+    refs.forEach(function(r, i) {
+      const escapedCat = cat.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      const labelVal   = esc(r.label || ('참고 ' + (i + 1)));
+      const descVal    = r.desc || '';
+      out += `<div class="ref-item">
+        <img class="ref-item-img" src="${r.src}" loading="lazy"
+             onclick="openZoomRef(${i},'${escapedCat}')"
+             onerror="this.style.display='none'">
         <div class="ref-item-body">
           ${admin ? `
             <div class="ref-item-edit">
-              <input class="ref-edit-input" value="${labelVal}" placeholder="제목" onchange="updateRef('${escapedCatLocal}', ${i}, 'label', this.value)">
-              <textarea class="ref-edit-ta" placeholder="설명" onchange="updateRef('${escapedCatLocal}', ${i}, 'desc', this.value)">${descVal}</textarea>
-              <button class="ref-del-btn" onclick="deleteRef('${escapedCatLocal}', ${i})">삭제</button>
-            </div>
-          ` : `
+              <input class="ref-edit-input" value="${labelVal.replace(/"/g,'&quot;')}" placeholder="제목"
+                     onchange="updateRef('${escapedCat}',${i},'label',this.value)">
+              <textarea class="ref-edit-ta" placeholder="설명 (선택)"
+                        onchange="updateRef('${escapedCat}',${i},'desc',this.value)">${esc(descVal)}</textarea>
+              <div style="display:flex;gap:6px;margin-top:4px;">
+                <button class="ref-del-btn" onclick="deleteRef('${escapedCat}',${i})">🗑️ 삭제</button>
+              </div>
+            </div>` : `
             <div class="ref-item-title">${labelVal}</div>
-            ${descVal ? `<div class="ref-item-desc">${descVal}</div>` : ''}
-          `}
+            ${descVal ? `<div class="ref-item-desc">${esc(descVal)}</div>` : ''}`}
         </div>
       </div>`;
-  });
-}
+    });
+  }
 
-if (!driveFiles.length && !refs.length) {
-  out = `
-    <div style="text-align:center;padding:30px;color:#aaa;">
-      <div style="font-size:32px;margin-bottom:8px;">📂</div>
-      <div>참고자료가 없습니다</div>
-      ${admin ? `<a href="${folderUrl}" target="_blank" style="display:inline-block;margin-top:10px;font-size:12px;color:var(--lav-dk);font-weight:700;">☁️ 드라이브에 올리기 →</a>` : ''}
-    </div>`;
-}
-
-// ── 로컬 추가 버튼 ── (기존 1888번 줄 시작점)
-if (admin) {
-  const escapedCatForAdd = cat.replace(/'/g, "\\'");
-  out += `
-    <div style="border-top:1px solid #e0d8f5;padding-top:12px;margin-top:4px;">
-      <div style="font-size:12px;font-weight:700;color:var(--lav-dk);margin-bottom:4px;">📱 이 기기에 추가</div>
-      <div style="font-size:11px;color:#888;margin-bottom:6px;">다른 기기에서 보려면 
-        <a href="${folderUrl}" target="_blank" style="color:var(--lav-dk);">드라이브 폴더</a>에 올리세요
+  // ── 추가 버튼 (관리자만) ──
+  if (admin) {
+    const escapedCatAdd = cat.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    out += `<div style="border-top:1px solid #e0d8f5;padding-top:12px;margin-top:8px;">
+      <div style="font-size:12px;font-weight:700;color:var(--lav-dk);margin-bottom:4px;">+ 참고자료 추가</div>
+      <div style="font-size:11px;color:#888;margin-bottom:8px;">
+        PC에서 이미지를 선택하면 이 기기에 저장됩니다.<br>
+        모든 기기에서 공유하려면
+        <a href="${folderUrl}" target="_blank" style="color:var(--lav-dk);">reference_images 폴더</a>에 올리세요.
       </div>
-      <input type="file" accept="image/*" multiple onchange="addRefImages(this, '${escapedCatForAdd}')" style="font-size:12px;">
+      <input type="file" accept="image/*" multiple
+             onchange="addRefImages(this,'${escapedCatAdd}')"
+             style="font-size:12px;">
     </div>`;
-}
-
+  }
   body.innerHTML = out;
-} // <-- 이 중괄호가 렌더링 함수를 닫는 중요한 부분입니다.
+}
 
 function openZoomRefDrive(cat, idx) {
   const files = getRefFilesForCat(cat);
@@ -1965,7 +1965,13 @@ function addRefImages(input, cat) {
       if (done === files.length) {
         try {
           saveRef();
-          showToast(`✅ 참고자료 ${done}장 저장 완료 (브라우저 로컬)`);
+          showToast(`✅ 참고자료 ${done}장 저장 완료!`);
+          const msgEl = document.getElementById('ref-save-msg');
+          if (msgEl) {
+            msgEl.textContent = `✅ ${done}장 저장 완료!`;
+            msgEl.style.display = 'block';
+            setTimeout(() => { msgEl.style.display = 'none'; }, 2500);
+          }
         } catch(err) {
           showToast('⚠️ 저장 실패: 용량 초과. 이미지를 줄여주세요.');
         }
@@ -2221,19 +2227,68 @@ async function saveBulk() {
 function addNewCategory() {
   const name = document.getElementById('new-cat-name').value.trim();
   if (!name) { showToast('이름을 입력하세요.'); return; }
-  if (DB[name] !== undefined) { showToast('이미 존재합니다.'); return; }
+  if (DB[name] !== undefined) { showToast('이미 존재하는 제품군입니다.'); return; }
   DB[name] = [];
   document.getElementById('new-cat-name').value = '';
-  const body = document.getElementById('cat-list-body');
-  const div  = document.createElement('div');
-  div.className = 'cat-row'; div.dataset.sheet = name;
-  div.innerHTML = `<input type="checkbox" class="cat-check" value="${esc(name)}" onchange="onCatChange(this)"><span class="cat-name">${esc(name)}</span><span class="cat-count">0건</span>`;
-  div.onclick = e => { if(e.target.classList.contains('cat-check'))return; const cb=div.querySelector('.cat-check');cb.checked=!cb.checked;onCatChange(cb); };
-  body.appendChild(div);
-  populateSelects(Object.keys(DB));
-  updateCounts();
-  showToast(`'${name}' 추가됨`);
+  // GAS로 빈 시트 생성 (백그라운드)
+  gasGet('addRow', { category: name, name: '(임시)', price: '', code: '' })
+    .then(j => { if (j.status === 'ok') showToast(`✅ "${name}" 추가됨`); })
+    .catch(() => showToast(`✅ "${name}" 로컬 추가됨`));
+  const sheets = Object.keys(DB).filter(n => !n.startsWith('__'));
+  renderCatList(sheets);
+  renderCatManageList(sheets);
+  populateSelects(sheets);
 }
+
+// 제품군 목록 + 수정/삭제 렌더링
+function renderCatManageList(sheets) {
+  const list = document.getElementById('cat-manage-list');
+  if (!list) return;
+  const vis = (sheets || Object.keys(DB)).filter(n => !n.startsWith('__'));
+  if (!vis.length) {
+    list.innerHTML = '<div style="font-size:12px;color:#aaa;text-align:center;padding:16px;">제품군이 없습니다.</div>';
+    return;
+  }
+  list.innerHTML = vis.map((name, i) => {
+    const cnt = (DB[name] || []).length;
+    return `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#f9fbfd;border-radius:8px;border:1px solid var(--border);">
+      <div style="flex:1;font-size:13px;font-weight:600;">${esc(name)}</div>
+      <div style="font-size:11px;color:#888;">${cnt}건</div>
+      <button onclick="startRenameCategory('${esc(name)}')"
+        style="font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--sky);background:var(--sky-lt);color:var(--sky-dk);cursor:pointer;">✏️ 이름변경</button>
+      <button onclick="deleteCategory('${esc(name)}')"
+        style="font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid var(--rose);background:var(--rose-lt);color:var(--rose-dk);cursor:pointer;">🗑️ 삭제</button>
+    </div>`;
+  }).join('');
+}
+
+// 제품군 이름 변경
+function startRenameCategory(oldName) {
+  const newName = prompt(`"${oldName}" 제품군의 새 이름을 입력하세요:`, oldName);
+  if (!newName || newName.trim() === oldName) return;
+  const n = newName.trim();
+  if (DB[n] !== undefined) { showToast('이미 존재하는 이름입니다.'); return; }
+  DB[n] = DB[oldName];
+  delete DB[oldName];
+  showToast(`✅ "${oldName}" → "${n}" 변경됨 (시트에서도 탭 이름 변경 필요)`);
+  const sheets = Object.keys(DB).filter(s => !s.startsWith('__'));
+  renderCatList(sheets); renderCatManageList(sheets); populateSelects(sheets);
+}
+
+// 제품군 삭제
+function deleteCategory(name) {
+  const cnt = (DB[name] || []).length;
+  const msg = cnt > 0
+    ? `"${name}" 제품군에 품목 ${cnt}건이 있습니다.
+삭제하면 목록에서 사라집니다. 계속할까요?`
+    : `"${name}" 제품군을 삭제할까요?`;
+  if (!confirm(msg)) return;
+  delete DB[name];
+  showToast(`🗑️ "${name}" 제품군 삭제됨`);
+  const sheets = Object.keys(DB).filter(s => !s.startsWith('__'));
+  renderCatList(sheets); renderCatManageList(sheets); populateSelects(sheets);
+}
+
 
 /* ══════════════════════════════════════
    사용자 관리
