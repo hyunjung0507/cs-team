@@ -1589,21 +1589,34 @@ async function buildCarousel(item) {
   // ① 시트 image_path에서 파일명 목록 파싱
   let imgPaths = parseImagePaths(item.image_path || '');
 
-  // ② 캐시 로드 완료 시: 자재코드 기반으로 관련 이미지 자동 탐색
-  //    예) 코드=39A0026100 → 캐시에서 39A0026100.png, 39A0026100-1.png, -2.png 등 모두 찾기
-  if (IMG_CACHE_LOADED && item.code) {
-    const codeKey = item.code.toLowerCase();
-    const related = Object.keys(IMG_ID_CACHE).filter(fn => {
-      const base = fn.replace(/\.\w+$/, '');          // 확장자 제거
-      return base === codeKey                           // 정확히 일치
-          || base.startsWith(codeKey + '-')            // 코드-1, 코드-2 등
-          || base.startsWith(codeKey + '_');           // 코드_1 등
+  // ② 캐시 로드 완료 시: 자재코드 + image_path basename 기반으로 관련 이미지 탐색
+  //    예1) code=39A0026100 → 39A0026100.png, 39A0026100-1.png, 39A0026100-2.png
+  //    예2) image_path=전기히터_품명.png → 전기히터_품명-1.png, 전기히터_품명-2.png 도 탐색
+  if (IMG_CACHE_LOADED) {
+    // 탐색 기준 키 목록 수집 (자재코드 + 이미 등록된 image_path들의 basename)
+    const searchKeys = new Set();
+    // 자재코드가 실제 코드일 때만 추가 (코드없음 등 제외)
+    const invalidCodes = ['코드없음','코드없앰','없음','none','','null'];
+    if (item.code && !invalidCodes.includes(item.code.trim().toLowerCase())) {
+      searchKeys.add(item.code.toLowerCase());
+    }
+    imgPaths.forEach(p => {
+      const base = p.toLowerCase().replace(/\.\w+$/, '').replace(/-\d+$/, '');
+      if (base) searchKeys.add(base);
     });
-    // 시트에 없던 연관 이미지 추가 (정렬: 기본 → -1 → -2 순)
-    related.sort().forEach(fn => {
-      if (!imgPaths.map(p=>p.toLowerCase()).includes(fn)) {
-        imgPaths.push(fn);
-      }
+
+    searchKeys.forEach(key => {
+      const related = Object.keys(IMG_ID_CACHE).filter(fn => {
+        const base = fn.replace(/\.\w+$/, '');   // 확장자 제거
+        return base === key                         // 정확히 일치
+            || base.startsWith(key + '-')          // key-1, key-2 등
+            || base.startsWith(key + '_');         // key_1 등
+      });
+      related.sort().forEach(fn => {
+        if (!imgPaths.map(p => p.toLowerCase()).includes(fn)) {
+          imgPaths.push(fn);
+        }
+      });
     });
   }
 
@@ -2278,11 +2291,18 @@ function startRenameCategory(oldName) {
 // 제품군 삭제
 function deleteCategory(name) {
   const cnt = (DB[name] || []).length;
-  const msg = cnt > 0
-    ? `"${name}" 제품군에 품목 ${cnt}건이 있습니다.
-삭제하면 목록에서 사라집니다. 계속할까요?`
-    : `"${name}" 제품군을 삭제할까요?`;
-  if (!confirm(msg)) return;
+  // 1차 확인
+  const msg1 = cnt > 0
+    ? `⚠️ "${name}" 제품군\n\n품목 ${cnt}건이 포함되어 있습니다.\n정말 삭제하시겠습니까?`
+    : `"${name}" 제품군을 삭제하시겠습니까?`;
+  if (!confirm(msg1)) return;
+  // 2차 확인 — 제품군 이름 직접 입력
+  const typed = prompt(`🚨 최종 확인\n\n되돌릴 수 없습니다.\n삭제하려면 제품군 이름을 정확히 입력하세요:\n\n→ "${name}"`);
+  if (typed === null) return;
+  if (typed.trim() !== name) {
+    alert('입력한 이름이 다릅니다. 삭제가 취소되었습니다.');
+    return;
+  }
   delete DB[name];
   showToast(`🗑️ "${name}" 제품군 삭제됨`);
   const sheets = Object.keys(DB).filter(s => !s.startsWith('__'));
