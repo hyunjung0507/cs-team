@@ -1610,9 +1610,14 @@ async function buildCarousel(item) {
     searchKeys.forEach(key => {
       const related = Object.keys(IMG_ID_CACHE).filter(fn => {
         const base = fn.replace(/\.\w+$/, '');   // 확장자 제거
-        return base === key                         // 정확히 일치
-            || base.startsWith(key + '-')          // key-1, key-2 등
-            || base.startsWith(key + '_');         // key_1 등
+        // 정확히 일치 OR 하이픈+숫자만 허용 (key-1, key-2)
+        // 언더스코어 suffix 제거 → 오매칭 방지
+        if (base === key) return true;
+        if (base.startsWith(key + '-')) {
+          const suffix = base.slice(key.length + 1);
+          return /^\d+$/.test(suffix);  // 숫자만 있어야 함
+        }
+        return false;
       });
       related.sort().forEach(fn => {
         if (!imgPaths.map(p => p.toLowerCase()).includes(fn)) {
@@ -2517,14 +2522,17 @@ function showPage(id) {
   window.scrollTo(0,0);
 }
 function showTab(id) {
-  // 버튼 active: onclick 속성 기준으로 매칭
+  // 버튼 active 처리
   document.querySelectorAll('.tab-btn').forEach(b => {
-    const btnId = (b.getAttribute('onclick') || '').replace(/showTab\(['"]([^'"]+)['"]\)/, '$1');
-    b.classList.toggle('active', btnId === id);
+    const oc = b.getAttribute('onclick') || '';
+    const m  = oc.match(/showTab\(['"]([^'"]+)['"]\)/);
+    b.classList.toggle('active', m ? m[1] === id : false);
   });
-  // 패널 active: id 기준
+  // 패널: class + style 직접 제어 (CSS 덮어쓰기 방지)
   document.querySelectorAll('.tab-panel').forEach(p => {
-    p.classList.toggle('active', p.id === id);
+    const isActive = p.id === id;
+    p.classList.toggle('active', isActive);
+    p.style.display = isActive ? 'block' : 'none';
   });
 }
 
