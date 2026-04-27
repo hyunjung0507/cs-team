@@ -1591,39 +1591,48 @@ async function buildCarousel(item) {
   // ① 시트 image_path에서 파일명 목록 파싱
   let imgPaths = parseImagePaths(item.image_path || '');
 
-  // ② 캐시 로드 완료 시: 자재코드 + image_path basename 기반으로 관련 이미지 탐색
-  //    예1) code=39A0026100 → 39A0026100.png, 39A0026100-1.png, 39A0026100-2.png
-  //    예2) image_path=전기히터_품명.png → 전기히터_품명-1.png, 전기히터_품명-2.png 도 탐색
+  // ② 캐시에서 연속 이미지(-1,-2,...) 추가 탐색
+  // ★ basename 계산 시 1~3자리 숫자 suffix만 제거 (자재코드 숫자 보호)
   if (IMG_CACHE_LOADED) {
-    // 탐색 기준 키 목록 수집 (자재코드 + 이미 등록된 image_path들의 basename)
-    const searchKeys = new Set();
-    // 자재코드가 실제 코드일 때만 추가 (코드없음 등 제외)
     const invalidCodes = ['코드없음','코드없앰','없음','none','','null'];
-    if (item.code && !invalidCodes.includes(item.code.trim().toLowerCase())) {
-      searchKeys.add(item.code.toLowerCase());
-    }
-    imgPaths.forEach(p => {
-      const base = p.toLowerCase().replace(/\.\w+$/, '').replace(/-\d+$/, '');
-      if (base) searchKeys.add(base);
-    });
+    const searchKeys = new Set();
 
+    // basename 계산: 확장자 제거 + 끝의 하이픈+1~3자리 숫자만 제거
+    const getBase = p => p.toLowerCase()
+      .replace(/\.\w{2,5}$/, '')    // 확장자 제거
+      .replace(/-\d{1,3}$/, '');     // -1~-99만 제거 (자재코드 숫자는 7자리 이상이라 보호됨)
+
+    if (imgPaths.length > 0) {
+      // image_path 있으면 → 그 basename 기준으로만 탐색 (code는 추가 탐색 안 함)
+      imgPaths.forEach(p => {
+        const base = getBase(p);
+        if (base && base.length > 2) searchKeys.add(base);
+      });
+    } else if (item.code) {
+      // image_path 없으면 → 자재코드로 탐색
+      const c = item.code.trim().toLowerCase();
+      if (!invalidCodes.includes(c)) searchKeys.add(c);
+    }
+
+    const existingLower = new Set(imgPaths.map(p => p.toLowerCase()));
     searchKeys.forEach(key => {
-      const related = Object.keys(IMG_ID_CACHE).filter(fn => {
-        const base = fn.replace(/\.\w+$/, '');   // 확장자 제거
-        // 정확히 일치 OR 하이픈+숫자만 허용 (key-1, key-2)
-        // 언더스코어 suffix 제거 → 오매칭 방지
-        if (base === key) return true;
-        if (base.startsWith(key + '-')) {
-          const suffix = base.slice(key.length + 1);
-          return /^\d+$/.test(suffix);  // 숫자만 있어야 함
-        }
-        return false;
-      });
-      related.sort().forEach(fn => {
-        if (!imgPaths.map(p => p.toLowerCase()).includes(fn)) {
-          imgPaths.push(fn);
-        }
-      });
+      Object.keys(IMG_ID_CACHE)
+        .filter(fn => {
+          const base = fn.replace(/\.\w{2,5}$/, '');
+          if (base === key) return true;
+          if (base.startsWith(key + '-')) {
+            const suffix = base.slice(key.length + 1);
+            return /^\d{1,3}$/.test(suffix);  // 1~3자리 숫자만 허용
+          }
+          return false;
+        })
+        .sort()
+        .forEach(fn => {
+          if (!existingLower.has(fn.toLowerCase())) {
+            imgPaths.push(fn);
+            existingLower.add(fn.toLowerCase());
+          }
+        });
     });
   }
 
@@ -2522,17 +2531,23 @@ function showPage(id) {
   window.scrollTo(0,0);
 }
 function showTab(id) {
-  // 버튼 active 처리
+  // 버튼 active
   document.querySelectorAll('.tab-btn').forEach(b => {
     const oc = b.getAttribute('onclick') || '';
-    const m  = oc.match(/showTab\(['"]([^'"]+)['"]\)/);
-    b.classList.toggle('active', m ? m[1] === id : false);
+    const m  = oc.match(/showTab\(['"](tab-[^'"]+)['"]\)/);
+    b.classList.toggle('active', !!(m && m[1] === id));
   });
-  // 패널: class + style 직접 제어 (CSS 덮어쓰기 방지)
-  document.querySelectorAll('.tab-panel').forEach(p => {
-    const isActive = p.id === id;
-    p.classList.toggle('active', isActive);
-    p.style.display = isActive ? 'block' : 'none';
+  // 패널 표시: style.display 직접 제어 (CSS보다 우선)
+  ['tab-add','tab-bulk','tab-newcat','tab-users','tab-backup'].forEach(pid => {
+    const el = document.getElementById(pid);
+    if (!el) return;
+    if (pid === id) {
+      el.style.display = 'block';
+      el.classList.add('active');
+    } else {
+      el.style.display = 'none';
+      el.classList.remove('active');
+    }
   });
 }
 
