@@ -2529,6 +2529,8 @@ function showPage(id) {
   ['search','detail','manage'].forEach(p => document.getElementById('page-'+p).classList.remove('active'));
   document.getElementById('page-'+id).classList.add('active');
   window.scrollTo(0,0);
+  // manage 페이지 열 때 탭 초기화 (tab-add 기본 표시)
+  if (id === 'manage') showTab('tab-add');
 }
 function showTab(id) {
   // 버튼 active
