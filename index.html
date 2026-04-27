@@ -217,6 +217,17 @@ a { color: inherit; text-decoration: none; }
 .result-table td { padding: 6px 10px; border-bottom: 1px solid #edf5fc; font-size: 13px; vertical-align: middle; }
 .result-table tr:hover td { background: #f0f8ff; cursor: pointer; }
 .item-name   { font-weight: 700; color: #1a3a5a; margin-bottom: 2px; }
+/* 상태별 행 색상 */
+tr.status-available    .item-name { color:#1a6b3a; font-weight:700; }
+tr.status-repair_sale  .item-name { color:#0055a5; }
+tr.status-stock_check  .item-name { color:#7a4f00; }
+tr.status-unknown      .item-name { color:#888; }
+tr.status-repair_only  .item-name { color:#a05000; }
+tr.status-discontinued .item-name { color:#c00; text-decoration:line-through; opacity:.75; }
+tr.status-available    { background:rgba(0,200,100,.05); }
+tr.status-discontinued { background:rgba(200,0,0,.05); }
+tr.status-repair_only  { background:rgba(255,160,0,.05); }
+tr.status-stock_check  { background:rgba(255,220,0,.05); }
 .item-models { font-size: 11px; color: #888; line-height: 1.4; max-height: 32px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; margin-top:1px; }
 .sheet-cell  { font-size: 11px; color: var(--sky-dk); background: var(--sky-lt); padding: 2px 8px; border-radius: var(--r-pill); white-space: nowrap; }
 .img-count-chip { font-size: 10px; background: var(--sky-lt); color: var(--sky-dk); padding: 1px 6px; border-radius: 10px; }
@@ -447,7 +458,8 @@ a { color: inherit; text-decoration: none; }
   color: var(--gray); font-size: 13px; font-weight: 500; transition: all .15s;
 }
 .tab-btn.active { background: var(--sky); color: var(--white); border-color: var(--sky); }
-.tab-panel { display: none; }
+.tab-panel { display: block; }
+.tab-panel[hidden] { display: none !important; }
 .tab-panel.active { display: block; }
 
 /* 대량 입력 테이블 */
@@ -591,6 +603,7 @@ a { color: inherit; text-decoration: none; }
       <span class="role-badge" id="role-display"></span>
       <span style="font-size:13px;color:#1a5f8a;font-weight:600;" id="user-display"></span>
       <button class="btn-hdr" id="manage-btn" onclick="showPage('manage')" style="display:none;">⚙️ 관리</button>
+      <button class="btn-hdr" id="refresh-btn" onclick="refreshData()" title="데이터 새로고침">🔄</button>
       <button class="btn-hdr" onclick="doLogout()">나가기</button>
     </div>
   </div>
@@ -805,7 +818,7 @@ a { color: inherit; text-decoration: none; }
       </div>
 
       <!-- 대량 추가 -->
-      <div id="tab-bulk" class="tab-panel">
+      <div id="tab-bulk" hidden class="tab-panel">
         <div class="field-group" style="margin-bottom:12px;max-width:280px;"><div class="field-label">제품군 *</div><select class="field-input" id="bulk-cat"><option value="">선택...</option></select></div>
         <div class="table-wrap">
           <table class="bulk-table">
@@ -818,7 +831,7 @@ a { color: inherit; text-decoration: none; }
       </div>
 
       <!-- 제품군 추가 -->
-      <div id="tab-newcat" class="tab-panel">
+      <div id="tab-newcat" hidden class="tab-panel">
         <!-- 제품군 추가 -->
         <div style="background:#fff;border:1.5px solid var(--border);border-radius:10px;padding:14px;margin-bottom:16px;">
           <div style="font-size:13px;font-weight:700;color:var(--sky-dk);margin-bottom:10px;">➕ 새 제품군 추가</div>
@@ -838,7 +851,7 @@ a { color: inherit; text-decoration: none; }
         </div>
 
       <!-- 사용자 관리 -->
-      <div id="tab-users" class="tab-panel" style="min-height:200px;padding:16px;background:#f0f8ff;">
+      <div id="tab-users" hidden class="tab-panel" style="min-height:200px;padding:16px;background:#f0f8ff;">
         <div style="background:var(--sky-lt);border-radius:12px;padding:16px;margin-bottom:14px;border:1.5px solid var(--sky-dk);">
           <div style="font-size:14px;font-weight:800;color:var(--sky-dk);margin-bottom:10px;">👥 직원 관리 방법</div>
           <div style="font-size:12px;color:#444;line-height:2;">
@@ -868,7 +881,7 @@ a { color: inherit; text-decoration: none; }
       </div>
 
       <!-- 백업 -->
-      <div id="tab-backup" class="tab-panel">
+      <div id="tab-backup" hidden class="tab-panel">
         <div style="background:var(--mint-lt);border-radius:10px;padding:14px;margin-bottom:14px;font-size:13px;color:var(--mint-dk);line-height:1.9;">
           💾 <b>데이터 저장 위치</b><br>
           · 재고 상태·메모·수정 이력 → 브라우저 로컬스토리지<br>
@@ -1023,6 +1036,9 @@ let currentItemKey = null;
 let currentUser    = null;
 // 이미지 관련
 let currentImgUrls = [];
+let PAGE_SIZE = 50;   // 기본 50개
+let PAGE_NO   = 0;    // 현재 페이지 (0부터)
+let LAST_RESULTS = []; // 마지막 검색 결과 저장
 let currentImgMeta  = [];  // [{id, name}, ...]
 let IMG_ID_CACHE   = {};   // 파일명(소문자) → fileId 전역 캐시
 let REF_ID_CACHE   = {};   // reference_images 파일명 → fileId
@@ -1254,6 +1270,27 @@ function applyUserUI() {
   }
 }
 
+// 로그인 유지하면서 데이터만 새로고침
+async function refreshData() {
+  const btn = document.getElementById('refresh-btn');
+  if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
+  try {
+    const res  = await fetch(`${CFG.GAS_URL}?action=getData`);
+    const json = await res.json();
+    if (json.status === 'ok') {
+      DB = parseSheetData(json.data);
+      // 현재 검색 결과 유지하면서 데이터 갱신
+      doSearch();
+      showToast('🔄 데이터 새로고침 완료');
+    } else {
+      showToast('⚠️ 새로고침 실패: ' + json.message);
+    }
+  } catch(e) {
+    showToast('⚠️ 연결 오류');
+  }
+  if (btn) { btn.textContent = '🔄'; btn.disabled = false; }
+}
+
 function doLogout() {
   currentUser = null;
   matsLoginType = '';
@@ -1451,10 +1488,12 @@ function doSearch() {
   const results = [];
   targets.forEach(cat => {
     (DB[cat] || []).forEach((item, idx) => {
-      const nm = (item.name || '').toLowerCase();
-      const md = (item.models || '').toLowerCase();
-      const cd = (item.code || '').toLowerCase();
-      if (!kw || nm.includes(kw) || md.includes(kw) || cd.includes(kw))
+      const nm = (item.name || '').toLowerCase().replace(/\s+/g,'');
+      const md = (item.models || '').toLowerCase().replace(/\s+/g,'');
+      const cd = (item.code || '').toLowerCase().replace(/\s+/g,'');
+      const kwNoSp = kw.replace(/\s+/g,'');  // 검색어 공백 제거
+      if (!kw || nm.includes(kwNoSp) || md.includes(kwNoSp) || cd.includes(kwNoSp)
+               || nm.includes(kw) || md.includes(kw) || cd.includes(kw))
         results.push({ ...item, _cat: cat, _idx: idx, _key: cat + '::' + idx });
     });
   });
@@ -1470,11 +1509,28 @@ function renderResults(results, kw, filters) {
   if (kw) fi.push(`"${kw}"`);
   document.getElementById('result-filter-info').textContent = fi.join(' / ');
 
+  // 페이지네이션 저장
+  LAST_RESULTS = results;
+  PAGE_NO = 0;
+  renderPage(results, kw);
+}
+
+function renderPage(results, kw) {
+  kw = kw || document.getElementById('search-input').value.trim().toLowerCase();
+  const start = PAGE_NO * PAGE_SIZE;
+  const end   = start + PAGE_SIZE;
+  const page  = results.slice(start, end);
+  const total = results.length;
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+
+  // 결과 건수 업데이트
+  document.getElementById('result-count').textContent = total.toLocaleString();
+
   const tbody = document.getElementById('result-body');
   tbody.innerHTML = '';
-  results.slice(0, 300).forEach(item => {
+  page.forEach(item => {
     const extra  = extraData[item._key] || {};
-    const status = extra.status || 'available';
+    const status = normalizeStatus(item.status_gs || extra.status || 'available');
     const imgCnt = parseImagePaths(item.image_path || '').length;
     const tr = document.createElement('tr');
     // 검색결과 썸네일: 캐시에서 즉시 첫 번째 이미지 URL 조회
@@ -1503,11 +1559,55 @@ function renderResults(results, kw, filters) {
       <td style="font-size:12px;color:#777;min-width:90px;">${esc(item.code || '-')}</td>
       <td style="min-width:80px;">${statusBadge(status)}</td>
       <td style="min-width:70px;"><span class="sheet-cell">${esc(item._cat)}</span></td>`;
+    tr.className = 'status-' + normalizeStatus(status);
     tr.onclick = () => openDetail(item);
     tbody.appendChild(tr);
   });
-  if (results.length > 300)
-    tbody.insertAdjacentHTML('beforeend', `<tr><td colspan="5" style="text-align:center;color:#aaa;font-size:12px;padding:12px;">상위 300건 표시 — 검색어를 좁혀 보세요</td></tr>`);
+  // 페이지네이션 UI 렌더링
+  renderPagination(total, totalPages, kw);
+}
+
+function renderPagination(total, totalPages, kw) {
+  // 페이지네이션 컨테이너 (없으면 생성)
+  let pg = document.getElementById('pagination-bar');
+  if (!pg) {
+    pg = document.createElement('div');
+    pg.id = 'pagination-bar';
+    document.getElementById('result-section').appendChild(pg);
+  }
+  if (totalPages <= 1) { pg.innerHTML = ''; return; }
+
+  const start = PAGE_NO * PAGE_SIZE + 1;
+  const end   = Math.min((PAGE_NO + 1) * PAGE_SIZE, total);
+
+  pg.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;
+                padding:10px 4px;margin-top:8px;flex-wrap:wrap;gap:8px;">
+      <div style="font-size:12px;color:#777;">
+        전체 <b>${total.toLocaleString()}</b>건 중
+        <b>${start.toLocaleString()}</b>~<b>${end.toLocaleString()}</b>번 표시
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <select onchange="PAGE_SIZE=+this.value;PAGE_NO=0;renderPage(LAST_RESULTS);"
+          style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:#fff;">
+          <option value="10"  ${PAGE_SIZE===10?'selected':''}>10개</option>
+          <option value="30"  ${PAGE_SIZE===30?'selected':''}>30개</option>
+          <option value="50"  ${PAGE_SIZE===50?'selected':''}>50개</option>
+          <option value="100" ${PAGE_SIZE===100?'selected':''}>100개</option>
+        </select>
+        <button onclick="if(PAGE_NO>0){PAGE_NO--;renderPage(LAST_RESULTS);}"
+          style="padding:4px 12px;border:1px solid var(--border);border-radius:6px;
+                 background:${PAGE_NO===0?'#f5f5f5':'#fff'};cursor:pointer;font-size:12px;"
+          ${PAGE_NO===0?'disabled':''}>← 이전</button>
+        <span style="font-size:12px;font-weight:700;color:var(--sky-dk);">
+          ${PAGE_NO+1} / ${totalPages}
+        </span>
+        <button onclick="if(PAGE_NO<${totalPages-1}){PAGE_NO++;renderPage(LAST_RESULTS);}"
+          style="padding:4px 12px;border:1px solid var(--border);border-radius:6px;
+                 background:${PAGE_NO>=totalPages-1?'#f5f5f5':'#fff'};cursor:pointer;font-size:12px;"
+          ${PAGE_NO>=totalPages-1?'disabled':''}>다음 →</button>
+      </div>
+    </div>`;
 }
 
 /* ══════════════════════════════════════
@@ -2540,23 +2640,22 @@ function showTab(id) {
     const m  = oc.match(/showTab\(['"](tab-[^'"]+)['"]\)/);
     b.classList.toggle('active', !!(m && m[1] === id));
   });
-  // 패널 표시: style.display 직접 제어 (CSS보다 우선)
+  // 모든 패널 숨김
   ['tab-add','tab-bulk','tab-newcat','tab-users','tab-backup'].forEach(pid => {
     const el = document.getElementById(pid);
     if (!el) return;
-    if (pid === id) {
-      el.style.display = 'block';
-      el.style.visibility = 'visible';
-      el.style.opacity = '1';
-      el.style.minHeight = '100px';
-      el.classList.add('active');
-      void el.offsetHeight;  // 강제 reflow
-      console.log('[showTab] 표시:', pid, el.offsetHeight);
-    } else {
-      el.style.display = 'none';
-      el.classList.remove('active');
-    }
+    el.setAttribute('hidden', '');
+    el.classList.remove('active');
   });
+  // 선택 패널만 표시 (hidden 속성 제거)
+  const target = document.getElementById(id);
+  if (target) {
+    target.removeAttribute('hidden');
+    target.classList.add('active');
+    // 부모 card 높이 갱신
+    const card = target.closest('.card');
+    if (card) card.style.minHeight = target.scrollHeight + 80 + 'px';
+  }
 }
 
 /* ══════════════════════════════════════
