@@ -1515,7 +1515,7 @@ function renderPage(results, kw) {
   tbody.innerHTML = '';
   page.forEach(item => {
     const extra  = extraData[item._key] || {};
-    const status = normalizeStatus(item.status_gs || extra.status || 'available');
+    const status = normalizeStatus(item.status_gs ? item.status_gs : (extra.status || 'available'));
     const imgCnt = parseImagePaths(item.image_path || '').length;
     const tr = document.createElement('tr');
     // 검색결과 썸네일: 캐시에서 즉시 첫 번째 이미지 URL 조회
@@ -1617,9 +1617,10 @@ async function openDetail(item) {
   document.getElementById('img-del-btn').style.display      = admin ? '' : 'none';
 
   // ★ 구글 시트 status 우선, 없으면 로컬 extra 사용
-  const sheetStatus = normalizeStatus(item.status_gs || extra.status || 'available');
+  const sheetStatus = normalizeStatus(item.status_gs ? item.status_gs : (extra.status || 'available'));
   const sheetMemo   = item.memo_gs   || extra.memo   || '';
-  if (!extra.status && item.status_gs) {
+  // ★ 시트 status_gs가 있으면 항상 로컬 extra.status 업데이트 (시트 우선)
+  if (item.status_gs) {
     extra.status = item.status_gs;
     extraData[currentItemKey] = { ...extra };
     saveExtra();
@@ -2171,7 +2172,7 @@ async function saveDetail() {
   track('코드',    String(currentItem.code||''),       newCode);
   track('모델',    String(currentItem.models||'').substring(0,30), newModels.substring(0,30));
   const statusKrLabel = STATUS_KR[newStatus] || newStatus;
-  track('상태', labels[normalizeStatus(extra.status||'available')], labels[newStatus]);
+  track('상태', labels[normalizeStatus(item.status_gs || extra.status || 'available')], labels[newStatus]);
 
   // 로컬 DB 업데이트
   const arr = DB[currentItem._cat];
