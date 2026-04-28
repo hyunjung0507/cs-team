@@ -603,7 +603,6 @@ tr.status-stock_check  { background:rgba(255,220,0,.05); }
       <span class="role-badge" id="role-display"></span>
       <span style="font-size:13px;color:#1a5f8a;font-weight:600;" id="user-display"></span>
       <button class="btn-hdr" id="manage-btn" onclick="showPage('manage')" style="display:none;">⚙️ 관리</button>
-      <button class="btn-hdr" id="refresh-btn" onclick="refreshData()" title="데이터 새로고침">🔄</button>
       <button class="btn-hdr" onclick="doLogout()">나가기</button>
     </div>
   </div>
@@ -650,14 +649,19 @@ tr.status-stock_check  { background:rgba(255,220,0,.05); }
         <input id="search-input" class="search-input" placeholder="모델명 또는 품목명 입력"
                onkeydown="if(event.key==='Enter')doSearch()">
         <button class="btn btn-primary" onclick="doSearch()">🔍 검색</button>
+        <button class="btn" onclick="clearSearch()" title="초기화" style="padding:8px 14px;">🗑️ 초기화</button>
+        <button class="btn" id="refresh-btn" onclick="refreshData()" title="데이터 새로고침" style="padding:8px 14px;">🔄 새로고침</button>
       </div>
     </div>
 
     <div id="result-section" class="hidden">
       <div class="card">
-        <div class="result-hdr">
-          <div class="result-count">검색 결과 <span id="result-count">0</span>건</div>
-          <div id="result-filter-info" style="font-size:12px;color:var(--gray);"></div>
+        <div class="result-hdr" style="flex-direction:column;align-items:stretch;gap:8px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+            <div class="result-count">검색 결과 <span id="result-count">0</span>건</div>
+            <div id="result-filter-info" style="font-size:12px;color:var(--gray);"></div>
+          </div>
+          <div id="pagination-bar"></div>
         </div>
         <div class="table-wrap">
           <table class="result-table">
@@ -787,7 +791,6 @@ tr.status-stock_check  { background:rgba(255,220,0,.05); }
         <button class="tab-btn active" onclick="showTab('tab-add')">➕ 품목 추가</button>
         <button class="tab-btn" onclick="showTab('tab-bulk')">📋 대량 추가</button>
         <button class="tab-btn" onclick="showTab('tab-newcat')">🗂️ 제품군 추가</button>
-        <button class="tab-btn" onclick="showTab('tab-users')">👥 사용자</button>
         <button class="tab-btn" onclick="showTab('tab-backup')">💾 백업</button>
       </div>
 
@@ -850,35 +853,7 @@ tr.status-stock_check  { background:rgba(255,220,0,.05); }
           <div id="cat-manage-list" style="display:flex;flex-direction:column;gap:6px;"></div>
         </div>
 
-      <!-- 사용자 관리 -->
-      <div id="tab-users" hidden class="tab-panel" style="min-height:200px;padding:16px;background:#f0f8ff;">
-        <div style="background:var(--sky-lt);border-radius:12px;padding:16px;margin-bottom:14px;border:1.5px solid var(--sky-dk);">
-          <div style="font-size:14px;font-weight:800;color:var(--sky-dk);margin-bottom:10px;">👥 직원 관리 방법</div>
-          <div style="font-size:12px;color:#444;line-height:2;">
-            직원 추가·수정·삭제는 <b>구글 시트에서 직접</b> 관리합니다.<br>
-            앱 로딩 속도를 빠르게 유지하고 로직 충돌을 방지하기 위해<br>
-            시트 기반 관리 방식을 사용합니다.
-          </div>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:10px;">
-          <div style="background:#fff;border:1.5px solid var(--border);border-radius:10px;padding:14px;">
-            <div style="font-size:13px;font-weight:700;margin-bottom:8px;">📋 [__본사직원명단] 시트 구조</div>
-            <table style="width:100%;font-size:12px;border-collapse:collapse;">
-              <tr style="background:var(--sky-lt);">
-                <th style="padding:6px 10px;border:1px solid #dde;text-align:left;">A열: 이름</th>
-                <th style="padding:6px 10px;border:1px solid #dde;text-align:left;">B열: 상태</th>
-                <th style="padding:6px 10px;border:1px solid #dde;text-align:left;">C열: 권한</th>
-              </tr>
-              <tr><td style="padding:6px 10px;border:1px solid #dde;">박현정</td><td style="padding:6px 10px;border:1px solid #dde;">재직</td><td style="padding:6px 10px;border:1px solid #dde;">관리자</td></tr>
-              <tr style="background:#fafafa;"><td style="padding:6px 10px;border:1px solid #dde;">홍길동</td><td style="padding:6px 10px;border:1px solid #dde;">재직</td><td style="padding:6px 10px;border:1px solid #dde;">일반</td></tr>
-            </table>
-            <div style="font-size:11px;color:#888;margin-top:8px;">• 상태: <b>재직</b> / 퇴사 &nbsp;|&nbsp; 권한: <b>관리자</b> / 일반</div>
-          </div>
-          <button class="btn btn-mint" onclick="window.open('https://docs.google.com/spreadsheets/d/1PVSCbRmt_up1TKLjgL7qqlCgRoWV_EjGvMg2w4z03Eg','_blank')">
-            📊 구글 시트에서 직원 명단 관리하기 →
-          </button>
-        </div>
-      </div>
+      
 
       <!-- 백업 -->
       <div id="tab-backup" hidden class="tab-panel">
@@ -1270,12 +1245,22 @@ function applyUserUI() {
   }
 }
 
+function clearSearch() {
+  document.getElementById('search-input').value = '';
+  document.querySelectorAll('.cat-check').forEach(cb => cb.checked = false);
+  document.getElementById('result-section').classList.add('hidden');
+  document.getElementById('empty-state').classList.add('hidden');
+  LAST_RESULTS = [];
+  const pg = document.getElementById('pagination-bar');
+  if (pg) pg.innerHTML = '';
+}
+
 // 로그인 유지하면서 데이터만 새로고침
 async function refreshData() {
   const btn = document.getElementById('refresh-btn');
   if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
   try {
-    const res  = await fetch(`${CFG.GAS_URL}?action=getData`);
+    const res  = await fetch(`${CFG.GAS_URL}?action=getData&_t=${Date.now()}`, { cache: 'no-store' });
     const json = await res.json();
     if (json.status === 'ok') {
       DB = parseSheetData(json.data);
@@ -1327,8 +1312,8 @@ async function loadData() {
   } catch(e) {}
 
   try {
-    const url = `${CFG.GAS_URL}?action=getData&sheetId=${CFG.SHEET_ID}`;
-    const res = await fetch(url);
+    const url = `${CFG.GAS_URL}?action=getData&sheetId=${CFG.SHEET_ID}&_t=${Date.now()}`;
+    const res = await fetch(url, { cache: 'no-store' });
     const json = await res.json();
 
     if (json.status === 'ok') {
@@ -1569,12 +1554,8 @@ function renderPage(results, kw) {
 
 function renderPagination(total, totalPages, kw) {
   // 페이지네이션 컨테이너 (없으면 생성)
-  let pg = document.getElementById('pagination-bar');
-  if (!pg) {
-    pg = document.createElement('div');
-    pg.id = 'pagination-bar';
-    document.getElementById('result-section').appendChild(pg);
-  }
+  const pg = document.getElementById('pagination-bar');
+  if (!pg) return;
   if (totalPages <= 1) { pg.innerHTML = ''; return; }
 
   const start = PAGE_NO * PAGE_SIZE + 1;
@@ -2037,17 +2018,28 @@ function renderRefBody(cat, refs, driveFiles) {
   // ── 추가 버튼 (관리자만) ──
   if (admin) {
     const escapedCatAdd = cat.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-    out += `<div style="border-top:1px solid #e0d8f5;padding-top:12px;margin-top:8px;">
-      <div style="font-size:12px;font-weight:700;color:var(--lav-dk);margin-bottom:4px;">+ 참고자료 추가</div>
-      <div style="font-size:11px;color:#888;margin-bottom:8px;">
-        PC에서 이미지를 선택하면 이 기기에 저장됩니다.<br>
-        모든 기기에서 공유하려면
-        <a href="${folderUrl}" target="_blank" style="color:var(--lav-dk);">reference_images 폴더</a>에 올리세요.
-      </div>
-      <input type="file" accept="image/*" multiple
-             onchange="addRefImages(this,'${escapedCatAdd}')"
-             style="font-size:12px;">
-    </div>`;
+    out += `<div style="border-top:1px solid #e0d8f5;padding-top:14px;margin-top:8px;">
+        <div style="font-size:13px;font-weight:700;color:var(--lav-dk);margin-bottom:10px;">📤 참고자료 추가 방법</div>
+        <div style="background:#f0fef4;border:1.5px solid #5bbf8a;border-radius:10px;padding:12px;margin-bottom:10px;">
+          <div style="font-size:12px;font-weight:700;color:#1e6b3a;margin-bottom:6px;">☁️ 방법1 (권장) — 구글 드라이브에 올리기</div>
+          <div style="font-size:11px;color:#444;line-height:1.9;margin-bottom:8px;">
+            모든 기기에서 확인 가능 · 백업 시 자동 포함<br>
+            📌 파일명 규칙: 제품군명_참고001.png<br>
+            올린 후 앱에서 🔄 새로고침 버튼을 누르세요
+          </div>
+          <a href="${folderUrl}" target="_blank"
+             style="display:inline-block;padding:7px 14px;background:#2e7a55;color:#fff;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;">
+            ☁️ reference_images 폴더 열기 →
+          </a>
+        </div>
+        <div style="background:#f8f5ff;border:1px solid #e0d8f5;border-radius:10px;padding:12px;">
+          <div style="font-size:12px;font-weight:700;color:var(--lav-dk);margin-bottom:4px;">📱 방법2 — 이 기기에만 저장</div>
+          <div style="font-size:11px;color:#888;margin-bottom:8px;">다른 기기에서는 보이지 않습니다</div>
+          <input type="file" accept="image/*" multiple
+                 onchange="addRefImages(this,'${escapedCatAdd}')"
+                 style="font-size:12px;">
+        </div>
+      </div>`;
   }
   body.innerHTML = out;
 }
@@ -2641,7 +2633,7 @@ function showTab(id) {
     b.classList.toggle('active', !!(m && m[1] === id));
   });
   // 모든 패널 숨김
-  ['tab-add','tab-bulk','tab-newcat','tab-users','tab-backup'].forEach(pid => {
+  ['tab-add','tab-bulk','tab-newcat','tab-backup'].forEach(pid => {
     const el = document.getElementById(pid);
     if (!el) return;
     el.setAttribute('hidden', '');
