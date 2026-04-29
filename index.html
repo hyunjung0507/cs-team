@@ -1340,10 +1340,10 @@ async function loadData() {
 
 function parseSheetData(rows) {
   if (!rows || rows.length < 2) return {};
-  // GAS v4 반환 형식 (고정):
-  // rows[0] = ['카테고리','name','price','code','image_note','models','image_path']
-  // rows[1~] = [시트명, 품명, 가격, 자재코드, note, models, image_path]
-  // 인덱스:     0       1     2     3         4     5       6
+  // GAS v7.1 반환 형식:
+  // rows[0] = ['카테고리','name','price','code','image_note','models','image_path','status','memo']
+  // rows[1~] = [시트명, 품명, 가격, 자재코드, note, models, image_path, status, memo]
+  // 인덱스:     0       1     2     3         4     5        6           7       8
   const result = {};
   for (let i = 1; i < rows.length; i++) {
     const r   = rows[i];
@@ -1361,6 +1361,8 @@ function parseSheetData(rows) {
       image_note: String(r[4] || '').trim(),
       models:     String(r[5] || '').trim(),
       image_path: String(r[6] || '').trim(),
+      status_gs:  String(r[7] || '').trim(),   // ★ G열 status
+      memo_gs:    String(r[8] || '').trim(),   // ★ H열 memo
       _row:       i + 1,
     });
   }
