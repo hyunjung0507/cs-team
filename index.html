@@ -1344,6 +1344,14 @@ function parseSheetData(rows) {
   // rows[0] = ['카테고리','name','price','code','image_note','models','image_path','status','memo']
   // rows[1~] = [시트명, 품명, 가격, 자재코드, note, models, image_path, status, memo]
   // 인덱스:     0       1     2     3         4     5        6           7       8
+  const header = rows[0] || [];
+  const statusCol = header.indexOf('status');   // 동적으로 status 컬럼 찾기
+  const memoCol   = header.indexOf('memo');
+  console.log('[parse] 헤더:', JSON.stringify(header));
+  console.log('[parse] statusCol:', statusCol, 'memoCol:', memoCol);
+  if (rows.length > 1) {
+    console.log('[parse] 첫행 샘플:', JSON.stringify(rows[1]));
+  }
   const result = {};
   for (let i = 1; i < rows.length; i++) {
     const r   = rows[i];
@@ -1354,6 +1362,8 @@ function parseSheetData(rows) {
     const priceStr = (rawPrice !== null && rawPrice !== undefined && rawPrice !== '')
       ? String(rawPrice).replace(/,/g,'').trim() : '';
     if (!result[cat]) result[cat] = [];
+    const sIdx = statusCol >= 0 ? statusCol : 7;
+    const mIdx = memoCol   >= 0 ? memoCol   : 8;
     result[cat].push({
       name:       nm,
       price:      priceStr,
@@ -1361,8 +1371,8 @@ function parseSheetData(rows) {
       image_note: String(r[4] || '').trim(),
       models:     String(r[5] || '').trim(),
       image_path: String(r[6] || '').trim(),
-      status_gs:  String(r[7] || '').trim(),   // ★ G열 status
-      memo_gs:    String(r[8] || '').trim(),   // ★ H열 memo
+      status_gs:  String(r[sIdx] || '').trim(),  // ★ 동적 인덱스
+      memo_gs:    String(r[mIdx] || '').trim(),  // ★ 동적 인덱스
       _row:       i + 1,
     });
   }
@@ -2174,7 +2184,7 @@ async function saveDetail() {
   track('코드',    String(currentItem.code||''),       newCode);
   track('모델',    String(currentItem.models||'').substring(0,30), newModels.substring(0,30));
   const statusKrLabel = STATUS_KR[newStatus] || newStatus;
-  track('상태', labels[normalizeStatus(item.status_gs || extra.status || 'available')], labels[newStatus]);
+  track('상태', labels[normalizeStatus(currentItem.status_gs || extra.status || 'available')], labels[newStatus]);
 
   // 로컬 DB 업데이트
   const arr = DB[currentItem._cat];
@@ -2194,15 +2204,7 @@ async function saveDetail() {
   // GAS 경유 시트 업데이트
   startLoad();
   try {
-    const payload = {
-      action: 'updateRow',
-      sheetId: CFG.SHEET_ID,
-      row: currentItem._row,
-      data: {
-        price: newPrice, code: newCode,
-        models: newModels, image_note: newNote,
-      }
-    };
+
     // 1) 품목 정보 업데이트
     const j1 = await gasGet('updateRow', {
       category:   currentItem._cat,
